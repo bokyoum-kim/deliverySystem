@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>물류관리 시스템 · DataSrep</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#F7F8F6;--surface:#FFFFFF;--ink:#1B211E;--muted:#5F6B66;--line:#E5EAE7;--line-2:#EEF2F0;
+    --brand:#0F6E56;--brand-d:#0B5644;--sidebar:#0E3A34;--sb-ink:#EAF3EF;--sb-muted:#7FA79A;--sb-active:#15574A;
+    --ship:#157F5C;--ship-bg:#E4F3EC;--warn:#A8690C;--warn-bg:#FBEFD8;--err:#B93B2D;--err-bg:#FBE7E3;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic",Roboto,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Code",Consolas,"D2Coding",monospace;
+    --shadow:0 1px 2px rgba(16,40,32,.05),0 6px 16px rgba(16,40,32,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .app{display:grid;grid-template-columns:232px 1fr;min-height:100vh}
+  .sidebar{background:var(--sidebar);color:var(--sb-ink);padding:22px 14px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh}
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 18px}
+  .brand .logo{width:30px;height:30px;border-radius:8px;background:var(--brand);display:grid;place-items:center;color:#fff;font-weight:700}
+  .brand b{font-size:14px}.brand small{display:block;color:var(--sb-muted);font-size:11px;font-weight:400}
+  .nav button{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:none;border:0;color:var(--sb-ink);padding:10px 11px;border-radius:8px;cursor:pointer;font-size:14px;font-family:inherit}
+  .nav button:hover{background:rgba(255,255,255,.06)}
+  .nav button[aria-current=true]{background:var(--sb-active);font-weight:600}
+  .nav .ico{width:18px;height:18px;flex:none;opacity:.9}
+  .sb-foot{margin-top:auto;color:var(--sb-muted);font-size:11px;padding:10px;border-top:1px solid rgba(255,255,255,.08)}
+  .main{min-width:0}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 30px;border-bottom:1px solid var(--line);background:var(--surface);position:sticky;top:0;z-index:5}
+  .topbar h1{margin:0;font-size:18px;font-weight:650}.topbar .sub{color:var(--muted);font-size:13px;margin-top:2px}
+  .content{padding:24px 30px 60px;max-width:1200px}
+  .view{display:none}.view.active{display:block}
+  .btn{border:1px solid var(--brand);background:var(--brand);color:#fff;padding:9px 15px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+  .btn:hover{background:var(--brand-d)}.btn.ghost{background:#fff;color:var(--brand);border-color:var(--line)}.btn.ghost:hover{background:var(--line-2)}
+  .btn.sm{padding:6px 11px;font-size:13px}.btn[disabled]{opacity:.45;cursor:not-allowed}
+  .btn.danger{background:#fff;color:var(--err);border-color:var(--err-bg)}.btn.danger:hover{background:var(--err-bg)}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+  .card+.card{margin-top:20px}
+  .card-h{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .card-h h3{margin:0;font-size:15px;font-weight:650}
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:12px;font-weight:600;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:9px 12px;border-bottom:1px solid var(--line-2);font-size:14px;vertical-align:middle}
+  tr:last-child td{border-bottom:0}
+  .num-c{text-align:right}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--line-2);color:var(--muted);padding:5px 12px;border-radius:999px;font-size:13px}
+  .muted{color:var(--muted)}.sku{font-size:12px;color:var(--muted)}
+  input.cell{border:1px solid var(--line);border-radius:6px;padding:5px 7px;font-size:13px;font-family:var(--mono);width:72px;text-align:right}
+  input.txt{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px;font-family:inherit}
+  select{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px;font-family:inherit;background:#fff}
+  .addrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px 18px;background:var(--line-2)}.addrow input{background:#fff}
+  .search{border:1px solid var(--line);border-radius:8px;padding:7px 11px;font-size:13px;width:220px;max-width:100%}
+  .badge{display:inline-block;padding:2px 9px;border-radius:6px;font-size:12px;font-weight:600}
+  .b-ship{background:var(--ship-bg);color:var(--ship)}.b-warn{background:var(--warn-bg);color:var(--warn)}.b-err{background:var(--err-bg);color:var(--err)}
+  .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:18px 0}
+  .stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .stat::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--c,transparent)}
+  .stat.s{--c:var(--ship)}.stat.s .n{color:var(--ship)}.stat.w{--c:var(--warn)}.stat.w .n{color:var(--warn)}.stat.e{--c:var(--err)}.stat.e .n{color:var(--err)}
+  .stat .l{font-size:12px;color:var(--muted)}.stat .n{font-size:24px;font-weight:700;margin-top:2px}
+  .settings{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;margin:6px 0 18px;padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+  .fld{display:flex;flex-direction:column;gap:5px}.fld label{font-size:12px;color:var(--muted)}
+  .drop{background:var(--surface);border:1.5px dashed #B9CBC4;border-radius:14px;padding:30px 22px;text-align:center}
+  .drop.drag{border-color:var(--brand);background:#F0F6F4}
+  .drop .up{width:38px;height:38px;margin:0 auto 8px;color:var(--brand)}
+  .drop h2{margin:0 0 4px;font-size:16px}.drop p{margin:0 0 14px;color:var(--muted);font-size:14px}
+  #fileInput,#mfileInput{display:none}
+  .msg{margin-top:12px;padding:11px 14px;border-radius:10px;font-size:14px;display:none}
+  .msg.err{display:block;background:var(--err-bg);color:var(--err)}.msg.load{display:block;background:var(--line-2);color:var(--muted)}
+  .dest{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:11px;background:var(--surface);box-shadow:var(--shadow)}
+  .dest-h{display:flex;align-items:center;gap:13px;padding:12px 15px;cursor:pointer;border-left:3px solid var(--ship)}
+  .dest-h:hover{background:var(--line-2)}.dest-h .nm{font-weight:650}.dest-h .ad{font-size:12px;color:var(--muted)}
+  .dest-h .tg{margin-left:auto;display:flex;gap:8px;align-items:center}
+  .pill{padding:3px 11px;border-radius:999px;font-size:12px;font-weight:600;background:var(--ship-bg);color:var(--ship)}
+  .caret{color:var(--muted);transition:transform .15s}.dest.open .caret{transform:rotate(90deg)}
+  .dest-b{display:none;padding:4px 15px 14px;border-top:1px solid var(--line-2)}.dest.open .dest-b{display:block}
+  .brow{display:flex;gap:12px;padding:8px 0;border-bottom:1px dashed var(--line);align-items:baseline}.brow:last-child{border-bottom:0}
+  .bid{font-size:12px;font-weight:700;color:var(--brand);min-width:118px}.bit{font-size:13px;flex:1}.bit .m{color:var(--muted)}.bq{font-size:12px;color:var(--muted);white-space:nowrap}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(18px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:.2s;z-index:50}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .hint{font-size:12px;color:var(--muted);margin-top:8px}
+  @media (max-width:900px){.app{grid-template-columns:1fr}.sidebar{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;padding:12px}.brand{width:100%;padding:4px 8px}.nav{display:flex;flex-wrap:wrap;gap:6px}.nav .ico{display:none}.sb-foot{display:none}.content{padding:18px 14px 50px}.stats{grid-template-columns:repeat(2,1fr)}}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><div class="logo">D</div><div><b>물류관리 시스템</b><small>DataSrep · 테스트</small></div></div>
+    <nav class="nav" id="nav">
+      <button data-v="home" aria-current="true"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h4"/></svg>재고 현황</button>
+      <button data-v="products"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 7H4M20 7l-2 12H6L4 7M9 11h6"/></svg>상품</button>
+      <button data-v="boxes"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16"/></svg>박스</button>
+      <button data-v="dests"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s7-5.2 7-11a7 7 0 10-14 0c0 5.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>배송지</button>
+      <button data-v="order"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/></svg>Order · 패킹</button>
+      <button data-v="recv"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16v6H4zM4 14h16v6H4M8 7h4M8 17h4"/></svg>발주 · 입고</button>
+    </nav>
+    <div class="sb-foot">데이터스랩㈜ · 데모<br>브라우저 내 처리</div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar"><div><h1 id="pt">재고 현황</h1><div class="sub" id="ps">현재 보유 재고와 상품 상태를 확인합니다.</div></div><div id="ta"></div></div>
+    <div class="content">
+
+      <section class="view active" id="v-home">
+        <div class="stats" id="homeStats"></div>
+        <div class="card">
+          <div class="card-h"><h3>재고 현황</h3>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <input class="search" id="invSearch" placeholder="상품명·번호 검색">
+              <input type="file" id="mfileInput" accept=".xlsx,.xls">
+              <button class="btn ghost sm" id="loadMaster">마스터 엑셀 불러오기</button>
+            </div>
+          </div>
+          <div style="overflow-x:auto"><table>
+            <thead><tr><th>상품번호</th><th>상품명</th><th>규격(mm)</th><th class="num-c">무게(g)</th><th class="num-c">단가</th><th class="num-c">현재고</th><th>상태</th></tr></thead>
+            <tbody id="invBody"></tbody></table></div>
+        </div>
+        <p class="hint">마스터 엑셀(ProductInfo·InStock·HoldItem·Destination·Box 시트)을 불러오면 재고·상품·배송지·박스가 갱신됩니다. 출고 확정 시 여기 재고가 차감됩니다.</p>
+      </section>
+
+      <section class="view" id="v-products">
+        <div class="card">
+          <div class="card-h"><h3>상품 마스터</h3><input class="search" id="prodSearch" placeholder="검색"></div>
+          <div class="addrow">
+            <input class="txt" id="np-code" placeholder="상품번호" style="width:110px">
+            <input class="txt" id="np-name" placeholder="상품명" style="width:200px">
+            <input class="txt mono" id="np-w" placeholder="무게g" style="width:66px">
+            <input class="txt mono" id="np-l" placeholder="가로" style="width:60px">
+            <input class="txt mono" id="np-W" placeholder="세로" style="width:60px">
+            <input class="txt mono" id="np-h" placeholder="높이" style="width:60px">
+            <input class="txt mono" id="np-p" placeholder="단가" style="width:70px">
+            <input class="txt mono" id="np-s" placeholder="재고" style="width:66px">
+            <button class="btn sm" id="np-add">추가</button>
+          </div>
+          <div style="overflow-x:auto"><table>
+            <thead><tr><th>상품번호</th><th>상품명</th><th>무게</th><th>가로</th><th>세로</th><th>높이</th><th>단가</th><th class="num-c">재고</th><th>단종</th></tr></thead>
+            <tbody id="prodBody"></tbody></table></div>
+        </div>
+      </section>
+
+      <section class="view" id="v-boxes">
+        <div class="card">
+          <div class="card-h"><h3>박스</h3><span class="chip">포장에 사용할 보유 박스</span></div>
+          <div class="addrow">
+            <input class="txt" id="nb-name" placeholder="상자종류" style="width:120px">
+            <input class="txt mono" id="nb-l" placeholder="가로" style="width:64px">
+            <input class="txt mono" id="nb-W" placeholder="세로" style="width:64px">
+            <input class="txt mono" id="nb-h" placeholder="높이" style="width:64px">
+            <input class="txt mono" id="nb-mw" placeholder="허용무게g" style="width:84px">
+            <input class="txt mono" id="nb-s" placeholder="보유수량" style="width:78px">
+            <button class="btn sm" id="nb-add">추가</button>
+          </div>
+          <div style="overflow-x:auto"><table>
+            <thead><tr><th>상자종류</th><th>가로</th><th>세로</th><th>높이</th><th class="num-c">허용무게(g)</th><th class="num-c">유효용적(cm³)</th><th class="num-c">보유수량</th><th></th></tr></thead>
+            <tbody id="boxBody"></tbody></table></div>
+        </div>
+        <p class="hint">박스당 적재수는 부피(용적×충진율), 허용무게, 최대수량 중 가장 먼저 차는 기준으로 결정됩니다.</p>
+      </section>
+
+      <section class="view" id="v-dests">
+        <div class="card">
+          <div class="card-h"><h3>배송지 (물류창고)</h3><span class="chip mono" id="destCount">0곳</span></div>
+          <div class="addrow">
+            <input class="txt" id="nd-region" placeholder="통합지역" style="width:110px">
+            <input class="txt" id="nd-area" placeholder="지역" style="width:100px">
+            <input class="txt" id="nd-name" placeholder="명칭" style="width:120px">
+            <input class="txt" id="nd-addr" placeholder="주소" style="width:240px">
+            <button class="btn sm" id="nd-add">추가</button>
+          </div>
+          <div style="overflow-x:auto"><table><thead><tr><th>통합지역</th><th>지역</th><th>명칭</th><th>주소</th><th></th></tr></thead><tbody id="destBody"></tbody></table></div>
+        </div>
+      </section>
+
+      <section class="view" id="v-order">
+        <div class="drop" id="drop">
+          <svg class="up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
+          <h2>주문 파일(Order 시트)을 올리세요</h2>
+          <p>또는 내장 샘플 주문으로 바로 확인 · .xlsx</p>
+          <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+            <button class="btn" id="pick">파일 선택</button>
+            <button class="btn ghost" id="sampleBtn">샘플 주문 불러오기</button>
+          </div>
+          <input type="file" id="fileInput" accept=".xlsx,.xls">
+        </div>
+        <div class="msg" id="msg"></div>
+
+        <div id="order-loaded" style="display:none">
+          <div class="stats" id="ostats"></div>
+          <div class="settings">
+            <div class="fld" style="min-width:280px;flex:1"><label>사용 박스 (여러 종류 혼용)</label><div id="boxChecks" style="display:flex;gap:14px;flex-wrap:wrap;padding-top:5px"></div></div>
+            <div class="fld"><label>충진율 %</label><input class="cell" id="eta" type="number" min="30" max="95" value="80"></div>
+            <div class="fld"><label>박스당 최대 수량</label><input class="cell" id="cap" type="number" min="1" value="100"></div>
+            <button class="btn" id="genBtn">Packing List 생성</button>
+            <button class="btn ghost sm" id="expBtn" disabled>엑셀 내보내기</button>
+          </div>
+          <div id="packSummary"></div>
+          <div id="packList"></div>
+        </div>
+      </section>
+
+      <section class="view" id="v-recv">
+        <div class="card">
+          <div class="card-h"><h3>구매발주 · 입고 (재고 부족분)</h3><button class="btn ghost sm" id="expPO" disabled>발주목록 내보내기</button></div>
+          <div style="overflow-x:auto"><table>
+            <thead><tr><th>상품번호</th><th>상품명</th><th class="num-c">부족수량</th><th class="num-c">입고수량</th><th></th></tr></thead>
+            <tbody id="recvBody"></tbody></table></div>
+        </div>
+        <p class="hint">패킹 시 재고가 부족했던 상품이 여기에 모입니다. 입고수량을 넣고 “입고 반영”을 누르면 재고가 늘어납니다.</p>
+      </section>
+
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+var MASTER={"P":[{"code":"310537","bc":"4901681461264","name":"클립온멀티 화이트","w":20,"L":120,"W":20,"H":20,"price":2000,"stock":130,"hold":false},{"code":"8081659","bc":"4901681136292","name":"제브라 중성펜 사라사3색 J3J2 0.5mm 와인","w":15,"L":140,"W":50,"H":20,"price":1500,"stock":140,"hold":false},{"code":"8081660","bc":"4901681136230","name":"제브라 중성펜 사라사3색 J3J2 0.5mm 투명","w":15,"L":140,"W":50,"H":20,"price":1500,"stock":150,"hold":false},{"code":"10742422","bc":"4901681577316","name":"블렌(bLen) 0.7mm 혼합5본세트","w":25,"L":150,"W":40,"H":30,"price":1800,"stock":300,"hold":false},{"code":"11280500","bc":"RS20200100576","name":"Pack_제브라 클립온멀티 4색 B4SA1 볼펜0.7+샤프0.5 블랙 2개","w":12,"L":110,"W":20,"H":10,"price":1500,"stock":25,"hold":false},{"code":"11645003","bc":"RS20200400239","name":"제브라 델가드 샤프 MAB85 0.7mm 블랙 2개","w":13,"L":110,"W":30,"H":10,"price":1500,"stock":50,"hold":false},{"code":"14982357","bc":"4901681185627","name":"제브라_사라사 그랜드 빈티지 볼펜 0.5mm_다크블루","w":8,"L":110,"W":30,"H":20,"price":800,"stock":0,"hold":true}],"D":[{"region":"경기남부","area":"경기광주","name":"경기광주1","addr":""},{"region":"경기남부","area":"경기광주","name":"경기광주3","addr":""},{"region":"경기북부","area":"고양","name":"고양1","addr":""},{"region":"대구","area":"대구","name":"대구2","addr":""},{"region":"대구","area":"대구","name":"대구3","addr":""},{"region":"대구","area":"대구","name":"대구6","addr":""},{"region":"경기남부","area":"동탄","name":"동탄1","addr":""},{"region":"서울","area":"서울","name":"서울","addr":""},{"region":"경기서부","area":"시흥","name":"시흥2","addr":""},{"region":"경기서부","area":"안산","name":"안산3","addr":""},{"region":"경남","area":"양산","name":"양산1","addr":""},{"region":"경기서부","area":"이천","name":"이천2","addr":""},{"region":"경기서부","area":"이천","name":"이천4","addr":""},{"region":"경기서부","area":"인천","name":"인천14","addr":""},{"region":"경기서부","area":"인천","name":"인천28","addr":""},{"region":"경기서부","area":"인천","name":"인천30","addr":""},{"region":"경기서부","area":"인천","name":"인천32","addr":""},{"region":"경기서부","area":"인천","name":"인천36","addr":""},{"region":"경기서부","area":"인천","name":"인천4","addr":""},{"region":"전남","area":"전라광주","name":"전라광주2","addr":""},{"region":"경남","area":"창원","name":"창원1","addr":""},{"region":"경남","area":"창원","name":"창원3","addr":""},{"region":"경남","area":"창원","name":"창원4","addr":""}],"B":[{"name":"대형 50X40","L":500,"W":300,"H":400,"maxw":10000,"stock":10},{"name":"중형 40X30","L":400,"W":300,"H":250,"maxw":8000,"stock":30},{"name":"소형 30X20","L":300,"W":200,"H":150,"maxw":5000,"stock":50}]};
+var SAMPLE=[
+ {po:'PO-1001',dest:'경기광주3',code:'310537',qty:50},
+ {po:'PO-1001',dest:'경기광주3',code:'8081659',qty:80},
+ {po:'PO-1001',dest:'경기광주3',code:'14982357',qty:20},
+ {po:'PO-1001',dest:'경기광주3',code:'10742422',qty:120},
+ {po:'PO-1002',dest:'서울',code:'8081660',qty:60},
+ {po:'PO-1002',dest:'서울',code:'11280500',qty:30},
+ {po:'PO-1002',dest:'서울',code:'11645003',qty:40},
+ {po:'PO-1003',dest:'이천2',code:'310537',qty:200},
+ {po:'PO-1003',dest:'이천2',code:'10742422',qty:250},
+ {po:'PO-1003',dest:'이천2',code:'8081659',qty:100},
+ {po:'PO-1004',dest:'양산1',code:'11645003',qty:30},
+ {po:'PO-1004',dest:'양산1',code:'8081660',qty:90}
+];
+(function(){
+  "use strict";
+  var $=function(s){return document.querySelector(s)},$$=function(s){return[].slice.call(document.querySelectorAll(s))};
+  var PRODUCTS={},BOXES=[],DESTS={},ORDER=[],PACK=null,committed=false,lastCommit=null,RECV=[];
+  var SET={eta:80,cap:100};
+  var esc=function(t){return String(t==null?'':t).replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c]})};
+  var toast=function(m){var t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show')},2400)};
+  var won=function(n){return Number(n).toLocaleString()+'원'};
+
+  function loadMaster(m){
+    PRODUCTS={}; (m.P||[]).forEach(function(p){PRODUCTS[p.code]={code:p.code,bc:p.bc||'',name:p.name,w:+p.w||0,L:+p.L||0,W:+p.W||0,H:+p.H||0,price:+p.price||0,stock:+p.stock||0,hold:!!p.hold};});
+    BOXES=(m.B||[]).map(function(b,i){return {id:'BX'+i,name:b.name,L:+b.L,W:+b.W,H:+b.H,maxw:+b.maxw||0,stock:+b.stock||0}});
+    if(!BOXES.length) BOXES=[{id:'BX0',name:'기본박스',L:500,W:300,H:400,maxw:10000,stock:10}];
+    DESTS={}; (m.D||[]).forEach(function(d){DESTS[d.name]={name:d.name,region:d.region||'',area:d.area||'',addr:d.addr||''};});
+  }
+
+  /* ---------- 엑셀 파서 ---------- */
+  function norm(h){return String(h==null?'':h).replace(/^사용자\s*지정\./,'').replace(/\s+/g,'').trim()}
+  function col(hs,cs){for(var i=0;i<hs.length;i++)for(var j=0;j<cs.length;j++)if(hs[i].indexOf(cs[j])>-1)return i;return -1}
+  function sheetAoa(wb,names){for(var i=0;i<names.length;i++)if(wb.SheetNames.indexOf(names[i])>-1)return XLSX.utils.sheet_to_json(wb.Sheets[names[i]],{header:1,defval:''});return null}
+  function num(v){var n=parseInt(String(v).replace(/[^0-9-]/g,''),10);return isNaN(n)?0:n}
+
+  function parseMaster(file){
+    showMsg('load','마스터를 읽는 중…','#msg');
+    var rd=new FileReader();
+    rd.onload=function(e){
+      try{
+        var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+        var m={P:[],D:[],B:[]};
+        var pi=sheetAoa(wb,['ProductInfo']);
+        var ins=sheetAoa(wb,['InStock']); var stk={};
+        if(ins&&ins.length){var h=ins[0].map(norm),ci=col(h,['상품번호']),cq=col(h,['기초수량','재고','수량']);for(var r=1;r<ins.length;r++){var c=String(ins[r][ci]||'').trim();if(c)stk[c]=num(ins[r][cq])}}
+        var hi=sheetAoa(wb,['HoldItem']); var holds={};
+        if(hi&&hi.length){var hh=hi[0].map(norm),hc=col(hh,['상품번호']);for(var r2=1;r2<hi.length;r2++){var c2=String(hi[r2][hc]||'').trim();if(c2)holds[c2]=1}}
+        if(pi&&pi.length){
+          var h2=pi[0].map(norm);
+          var ic={code:col(h2,['상품번호']),bc:col(h2,['바코드']),name:col(h2,['상품명','상품이름']),w:col(h2,['무게']),L:col(h2,['가로']),W:col(h2,['세로']),H:col(h2,['높이']),price:col(h2,['가격','단가'])};
+          for(var r3=1;r3<pi.length;r3++){var row=pi[r3],code=String(row[ic.code]||'').trim();if(!code)continue;
+            m.P.push({code:code,bc:ic.bc>-1?String(row[ic.bc]||''):'',name:ic.name>-1?String(row[ic.name]||''):code,w:num(row[ic.w]),L:num(row[ic.L]),W:num(row[ic.W]),H:num(row[ic.H]),price:num(row[ic.price]),stock:stk[code]!=null?stk[code]:0,hold:!!holds[code]});}
+        }
+        var de=sheetAoa(wb,['Destination']);
+        if(de&&de.length){var dh=de[0].map(norm),dc={reg:col(dh,['통합지역']),area:col(dh,['지역']),nm:col(dh,['명칭','물류센터','배송지']),ad:col(dh,['주소'])};
+          for(var r4=1;r4<de.length;r4++){var nm=String(de[r4][dc.nm]||'').trim();if(!nm)continue;m.D.push({region:dc.reg>-1?String(de[r4][dc.reg]||''):'',area:dc.area>-1?String(de[r4][dc.area]||''):'',name:nm,addr:dc.ad>-1?String(de[r4][dc.ad]||''):''});}}
+        var bx=sheetAoa(wb,['Box']);
+        if(bx&&bx.length){var bh=bx[0].map(norm),bc={nm:col(bh,['상자종류','박스']),L:col(bh,['가로']),W:col(bh,['세로']),H:col(bh,['높이']),mw:col(bh,['Hold','허용무게','무게']),st:col(bh,['보유수량','수량'])};
+          for(var r5=1;r5<bx.length;r5++){var bn=String(bx[r5][bc.nm]||'').trim();if(!bn)continue;m.B.push({name:bn,L:num(bx[r5][bc.L]),W:num(bx[r5][bc.W]),H:num(bx[r5][bc.H]),maxw:num(bx[r5][bc.mw]),stock:num(bx[r5][bc.st])});}}
+        if(!m.P.length){showMsg('err','ProductInfo 시트를 찾지 못했습니다.','#msg');return;}
+        loadMaster(m); clearMsg('#msg'); PACK=null; committed=false; RECV=[];
+        renderAll(); toast('마스터를 불러왔습니다 (상품 '+m.P.length+' · 배송지 '+m.D.length+' · 박스 '+m.B.length+')');
+      }catch(err){showMsg('err','마스터 오류: '+err.message,'#msg')}
+    };
+    rd.readAsArrayBuffer(file);
+  }
+
+  function parseOrder(file){
+    showMsg('load','주문을 읽는 중…','#msg');
+    var rd=new FileReader();
+    rd.onload=function(e){
+      try{
+        var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+        var sh=wb.SheetNames.indexOf('Order')>-1?'Order':(wb.SheetNames.indexOf('테스트데이터')>-1?'테스트데이터':wb.SheetNames[0]);
+        var aoa=XLSX.utils.sheet_to_json(wb.Sheets[sh],{header:1,defval:''});
+        if(!aoa.length){showMsg('err','시트에서 데이터를 찾지 못했습니다.','#msg');return;}
+        var hs=aoa[0].map(norm);
+        var ci={po:col(hs,['발주번호']),dest:col(hs,['물류센터','명칭','배송지']),code:col(hs,['상품번호']),name:col(hs,['상품명','상품이름']),qty:col(hs,['확정수량'])};
+        if(ci.qty<0)ci.qty=col(hs,['발주수량','수량']);
+        if(ci.code<0||ci.dest<0||ci.qty<0){showMsg('err','필수 컬럼(상품번호·물류센터·수량)을 찾지 못했습니다.','#msg');return;}
+        var lines=[];
+        for(var r=1;r<aoa.length;r++){var row=aoa[r],code=String(row[ci.code]||'').trim();if(!code)continue;
+          if(ci.po>-1){var po=String(row[ci.po]||'').trim();if(!po)continue;}
+          var q=num(row[ci.qty]);if(q<=0)continue;
+          var dest=String(row[ci.dest]||'').trim(),name=ci.name>-1?String(row[ci.name]||'').trim():code;
+          lines.push({po:ci.po>-1?String(row[ci.po]).trim():'',dest:dest,code:code,name:name,qty:q});
+          if(!PRODUCTS[code])PRODUCTS[code]={code:code,bc:'',name:name,w:15,L:150,W:90,H:20,price:0,stock:0,hold:false};
+          if(!DESTS[dest])DESTS[dest]={name:dest,region:'',area:'',addr:''};
+        }
+        if(!lines.length){showMsg('err','유효한 주문 라인을 찾지 못했습니다.','#msg');return;}
+        setOrder(lines); toast('주문을 불러왔습니다 ('+lines.length+'라인)');
+      }catch(err){showMsg('err','주문 오류: '+err.message,'#msg')}
+    };
+    rd.readAsArrayBuffer(file);
+  }
+  function setOrder(lines){
+    clearMsg('#msg'); ORDER=lines; PACK=null; committed=false; lastCommit=null;
+    var po={},d={},hold=0; lines.forEach(function(l){if(l.po)po[l.po]=1; d[l.dest]=1; if(PRODUCTS[l.code]&&PRODUCTS[l.code].hold)hold++;});
+    $('#drop').style.display='none'; $('#order-loaded').style.display='block';
+    $('#ostats').innerHTML=stat('','발주',Object.keys(po).length||'-')+stat('','주문 라인',lines.length)+stat('','배송지',Object.keys(d).length)+stat('e','단종(반송)',hold)+stat('','상품 종류',Object.keys(PRODUCTS).length);
+    fillBoxSel(); $('#packSummary').innerHTML=''; $('#packList').innerHTML=''; $('#expBtn').disabled=true;
+    renderInv(); renderDests();
+  }
+  function stat(c,l,n){return '<div class="stat '+c+'"><div class="l">'+l+'</div><div class="n mono">'+n+'</div></div>'}
+  function showMsg(c,t,sel){var m=$(sel);m.className='msg '+c;m.textContent=t}
+  function clearMsg(sel){var m=$(sel);m.className='msg';m.textContent=''}
+
+  /* ---------- 패킹: 부피 + 무게 + 수량 ---------- */
+  function volNom(b){return b.L*b.W*b.H}
+  function volCapOf(b){return b.L*b.W*b.H*(SET.eta/100)}
+  function byId(list,id){for(var i=0;i<list.length;i++)if(list[i].id===id)return list[i];return null}
+  function enabledBoxes(){return BOXES.filter(function(b){var c=document.querySelector('.boxchk[data-id="'+b.id+'"]');return c?c.checked:true;})}
+
+  // 여러 박스 종류 혼용: 큰 박스부터 채우고, 재고 소진 시 다음 박스로. 각 배송지 마지막 잔량 박스는 딱 맞는 더 작은 박스로 내려담기.
+  function packDest(ship,enabled,pool,used,overflow){
+    var boxes=[], t=null, over=false, cur=[], cc=0, cv=0, cw=0;
+    function pick(){for(var i=0;i<enabled.length;i++){if(pool[enabled[i].id]>0)return {b:enabled[i],over:false};}return {b:enabled[0],over:true};}
+    function openB(){var pk=pick();t=pk.b;over=pk.over;cur=[];cc=0;cv=0;cw=0;}
+    function closeB(){if(!cur.length){t=null;return;}boxes.push({typeId:t.id,typeName:t.name,items:cur,over:over});used[t.id]=(used[t.id]||0)+1;if(pool[t.id]>0)pool[t.id]--;else overflow[t.id]=(overflow[t.id]||0)+1;t=null;}
+    ship.slice().sort(function(a,b){return a.code<b.code?-1:1}).forEach(function(ln){
+      var p=PRODUCTS[ln.code],pv=p?p.L*p.W*p.H:0,pw=p?p.w:0,rem=ln.ship;
+      while(rem>0){
+        if(!t)openB();
+        var volCap=volCapOf(t),maxw=t.maxw||Infinity;
+        var canC=SET.cap-cc,canV=pv>0?Math.floor((volCap-cv)/pv):Infinity,canW=pw>0?Math.floor((maxw-cw)/pw):Infinity;
+        var fit=Math.min(canC,canV,canW,rem);
+        if(fit<=0){ if(cc===0){fit=1;} else {closeB();continue;} }
+        var last=cur[cur.length-1];
+        if(last&&last.code===ln.code)last.q+=fit; else cur.push({code:ln.code,name:ln.name,q:fit});
+        cc+=fit;cv+=fit*pv;cw+=fit*pw;rem-=fit;
+      }
+    });
+    closeB();
+    // 마지막 박스 다운사이즈: 잔량이 더 작은 박스에 들어가면 교체
+    if(boxes.length){
+      var lb=boxes[boxes.length-1], lv=0, lw=0, lc=0;
+      lb.items.forEach(function(it){var p=PRODUCTS[it.code];lv+=(p?p.L*p.W*p.H:0)*it.q;lw+=(p?p.w:0)*it.q;lc+=it.q;});
+      var curB=byId(enabled,lb.typeId), best=null;
+      for(var i=0;i<enabled.length;i++){var b=enabled[i];
+        if(b.id===lb.typeId||pool[b.id]<=0)continue;
+        if(volNom(b)>=volNom(curB))continue;
+        if(lv<=volCapOf(b)&&lw<=(b.maxw||Infinity)&&lc<=SET.cap){ if(!best||volNom(b)<volNom(best))best=b; }
+      }
+      if(best){
+        if(lb.over){overflow[lb.typeId]=(overflow[lb.typeId]||1)-1;} else {pool[lb.typeId]++;}
+        used[lb.typeId]--; used[best.id]=(used[best.id]||0)+1; pool[best.id]--;
+        lb.typeId=best.id; lb.typeName=best.name; lb.over=false;
+      }
+    }
+    return boxes;
+  }
+  function generate(){
+    if(!ORDER.length)return;
+    SET.eta=Math.min(95,Math.max(30,num($('#eta').value)||80));
+    SET.cap=Math.max(1,num($('#cap').value)||100);
+    var enabled=enabledBoxes().slice().sort(function(a,b){return volNom(b)-volNom(a)});
+    if(!enabled.length){toast('사용할 박스를 하나 이상 선택하세요');return;}
+    var pool={},used={},overflow={};
+    enabled.forEach(function(b){pool[b.id]=b.stock});
+    var byDest={},holds=[],packTotal=0;
+    ORDER.forEach(function(l){
+      var p=PRODUCTS[l.code];
+      if(p&&p.hold){ holds.push({dest:l.dest,code:l.code,name:l.name,qty:l.qty}); return; }
+      packTotal+=l.qty;
+      (byDest[l.dest]=byDest[l.dest]||[]).push({code:l.code,name:l.name,ship:l.qty});
+    });
+    // 재고와 무관하게 전량 패킹. 재고 부족분은 별도 계산(확정 시 반영).
+    var packedByProd={};
+    Object.keys(byDest).forEach(function(d){byDest[d].forEach(function(x){packedByProd[x.code]=(packedByProd[x.code]||0)+x.ship;});});
+    var shorts=[];
+    Object.keys(packedByProd).forEach(function(c){var p=PRODUCTS[c],need=packedByProd[c],av=p?p.stock:0;if(need>av)shorts.push({code:c,name:p?p.name:c,short:need-av});});
+    var dests=[],boxesUsed=0;
+    Object.keys(byDest).forEach(function(d){
+      var boxes=packDest(byDest[d],enabled,pool,used,overflow); boxesUsed+=boxes.length;
+      var q=byDest[d].reduce(function(a,c){return a+c.ship},0);
+      var dd=DESTS[d]||{}; dests.push({dest:d,addr:dd.addr||'',region:dd.region||'',boxes:boxes,qty:q});
+    });
+    dests.sort(function(a,b){return b.boxes.length-a.boxes.length});
+    PACK={dests:dests,shorts:shorts,holds:holds,shipTotal:packTotal,boxesUsed:boxesUsed,enabled:enabled,used:used,overflow:overflow,packedByProd:packedByProd};
+    committed=false; RECV=PACK.shorts.map(function(s){return {code:s.code,name:s.name,short:s.short,recv:s.short}});
+    renderPack(); renderRecv(); $('#expBtn').disabled=false;
+  }
+  function renderPack(){
+    var shortTypes=PACK.enabled.filter(function(b){return (PACK.used[b.id]||0)>b.stock;});
+    var usageStr=PACK.enabled.filter(function(b){return PACK.used[b.id]}).map(function(b){return esc(b.name)+' ×'+PACK.used[b.id];}).join(' · ')||'-';
+    $('#packSummary').innerHTML='<div class="stats">'+
+        stat('s','패킹 수량',won0(PACK.shipTotal))+
+        stat('s','사용 박스',PACK.boxesUsed)+
+        stat('w','재고부족',PACK.shorts.length+'품목')+
+        stat('e','반송(단종)',PACK.holds.length+'라인')+
+        stat('','배송지',PACK.dests.length)+
+      '</div>'+
+      '<div style="margin-bottom:12px;font-size:14px;color:var(--muted)">박스 사용 내역: <b style="color:var(--ink)">'+usageStr+'</b> · 패킹 리스트는 재고와 무관하게 전량 작성됩니다. 재고 부족분은 출고 확정 시 반영되고 발주·입고 탭에 모입니다.</div>'+
+      '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px">'+
+        '<button class="btn" id="confirmBtn"'+(committed?' disabled':'')+'>출고 확정 · 재고 차감</button>'+
+        (committed?'<button class="btn ghost sm" id="undoBtn">차감 되돌리기</button>':'')+
+        (shortTypes.length?'<span class="badge b-err">보유 박스 부족: '+shortTypes.map(function(b){return esc(b.name)+' 필요 '+PACK.used[b.id]+'/보유 '+b.stock;}).join(', ')+'</span>':'<span class="badge b-ship">박스 충분</span>')+
+        (committed?'<span class="badge b-ship">재고 차감 완료</span>':'')+
+      '</div>';
+    $('#packList').innerHTML='<div class="card-h" style="border:0;padding:2px 2px 12px"><h3>물류창고별 Packing List</h3></div>'+
+      PACK.dests.map(function(p){
+        var boxes=p.boxes.map(function(bx,i){
+          var id=esc(p.dest)+'-B'+String(i+1).padStart(2,'0');
+          var items=bx.items.map(function(it){return esc(short2(it.name))+' <span class="m mono">×'+it.q+'</span>'}).join(', ');
+          var sum=bx.items.reduce(function(a,c){return a+c.q},0);
+          var wt=bx.items.reduce(function(a,c){var p2=PRODUCTS[c.code];return a+(p2?p2.w*c.q:0)},0);
+          return '<div class="brow"><span class="bid mono">'+id+' <span class="badge b-warn" style="font-weight:600">'+esc(bx.typeName)+'</span></span><span class="bit">'+items+'</span><span class="bq mono">'+sum+'개 · '+won0(wt)+'g</span></div>';
+        }).join('');
+        return '<div class="dest"><div class="dest-h"><span class="caret">▶</span>'+
+          '<span class="nm">'+esc(p.dest)+'</span><span class="ad">'+esc(p.region)+(p.addr?' · '+esc(p.addr):'')+'</span>'+
+          '<span class="tg"><span class="pill">'+p.boxes.length+'박스 · '+p.qty+'개</span></span></div>'+
+          '<div class="dest-b">'+boxes+'</div></div>';
+      }).join('') +
+      (PACK.holds.length?'<div class="card" style="margin-top:14px"><div class="card-h"><h3>반송 대상 (단종)</h3><div style="display:flex;gap:10px;align-items:center"><span class="chip">'+PACK.holds.length+'라인</span><button class="btn ghost sm" id="expReturn">반송 리스트 엑셀</button></div></div><div style="overflow-x:auto"><table><thead><tr><th>배송지</th><th>상품</th><th class="num-c">수량</th></tr></thead><tbody>'+PACK.holds.map(function(h){return '<tr><td>'+esc(h.dest)+'</td><td>'+esc(h.name)+' <span class="sku mono">'+esc(h.code)+'</span></td><td class="num-c mono">'+h.qty+'</td></tr>'}).join('')+'</tbody></table></div></div>':'');
+    $$('.dest-h').forEach(function(h){h.addEventListener('click',function(){h.parentNode.classList.toggle('open')})});
+    var cb=$('#confirmBtn');if(cb)cb.addEventListener('click',confirmShip);
+    var ub=$('#undoBtn');if(ub)ub.addEventListener('click',undoShip);
+    var er=$('#expReturn');if(er)er.addEventListener('click',exportReturns);
+  }
+  function short2(n){n=String(n).replace(/^Pack_/,'');return n.length>30?n.slice(0,29)+'…':n}
+  function won0(n){return Number(n).toLocaleString()}
+
+  function confirmShip(){
+    if(committed||!PACK)return;
+    var deltas={},pb=PACK.packedByProd||{};
+    Object.keys(pb).forEach(function(c){var p=PRODUCTS[c];if(!p)return;var take=Math.min(p.stock,pb[c]);if(take>0){deltas[c]=take;p.stock-=take;}});
+    var boxUsed={};
+    Object.keys(PACK.used).forEach(function(id){var b=byId(BOXES,id);if(b){var take=Math.min(PACK.used[id],b.stock);b.stock=Math.max(0,b.stock-PACK.used[id]);boxUsed[id]=take;}});
+    lastCommit={deltas:deltas,boxUsed:boxUsed};committed=true;
+    renderPack(); renderInv(); renderBoxes();
+    toast('재고를 차감했습니다 (상품 '+Object.keys(deltas).length+'종 · 박스 '+PACK.boxesUsed+'개)');
+  }
+  function undoShip(){
+    if(!lastCommit)return;
+    Object.keys(lastCommit.deltas).forEach(function(c){if(PRODUCTS[c])PRODUCTS[c].stock+=lastCommit.deltas[c]});
+    Object.keys(lastCommit.boxUsed||{}).forEach(function(id){var b=byId(BOXES,id);if(b)b.stock+=lastCommit.boxUsed[id];});
+    lastCommit=null;committed=false;renderPack();renderInv();renderBoxes();toast('재고 차감을 되돌렸습니다');
+  }
+
+  function exportPack(){
+    if(!PACK)return;
+    var sum=[['배송지','통합지역','지역','주소','박스수','패킹수량']];
+    var det=[['배송지','통합지역','박스번호','박스종류','상품번호','바코드','상품명','수량','단위중량(g)','라인중량(g)']];
+    var bsum=[['배송지','박스번호','박스종류','품목수','총수량','총중량(g)']];
+    PACK.dests.forEach(function(p){
+      var dd=DESTS[p.dest]||{};
+      sum.push([p.dest,p.region,dd.area||'',p.addr,p.boxes.length,p.qty]);
+      p.boxes.forEach(function(bx,i){
+        var id=p.dest+'-B'+String(i+1).padStart(2,'0'),bq=0,bw=0;
+        bx.items.forEach(function(it){var pr=PRODUCTS[it.code]||{};var lw=(pr.w||0)*it.q;bq+=it.q;bw+=lw;
+          det.push([p.dest,p.region,id,bx.typeName,it.code,pr.bc||'',it.name,it.q,pr.w||0,lw]);});
+        bsum.push([p.dest,id,bx.typeName,bx.items.length,bq,bw]);
+      });
+    });
+    var wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sum),'배송지요약');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(bsum),'박스요약');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(det),'PackingList');
+    if(PACK.shorts.length){var s=[['상품번호','상품명','부족수량']];PACK.shorts.forEach(function(x){s.push([x.code,x.name,x.short])});XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s),'재고부족');}
+    if(PACK.holds.length){var h=[['배송지','상품번호','상품명','수량']];PACK.holds.forEach(function(x){h.push([x.dest,x.code,x.name,x.qty])});XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(h),'반송');}
+    XLSX.writeFile(wb,'PackingList.xlsx');toast('Packing List를 내보냈습니다');
+  }
+  function exportReturns(){
+    if(!PACK||!PACK.holds.length){toast('반송 대상이 없습니다');return;}
+    var a=[['배송지','상품번호','바코드','상품명','수량','사유']];
+    PACK.holds.forEach(function(x){var pr=PRODUCTS[x.code]||{};a.push([x.dest,x.code,pr.bc||'',x.name,x.qty,'단종']);});
+    var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a),'반송리스트');
+    XLSX.writeFile(wb,'반송리스트.xlsx');toast('반송 리스트를 내보냈습니다');
+  }
+
+  /* ---------- 렌더 ---------- */
+  function fillBoxSel(){var el=$('#boxChecks');if(!el)return;el.innerHTML=BOXES.map(function(b){return '<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" class="boxchk" data-id="'+b.id+'" checked> '+esc(b.name)+' <span class="muted mono" style="font-size:12px">('+b.L+'×'+b.W+'×'+b.H+' · '+won0(b.stock)+'개)</span></label>'}).join('')||'<span class="muted" style="font-size:13px">등록된 박스가 없습니다.</span>';}
+  function renderHomeStats(){
+    var list=Object.keys(PRODUCTS).map(function(c){return PRODUCTS[c]});
+    var totQty=list.reduce(function(a,p){return a+p.stock},0);
+    var val=list.reduce(function(a,p){return a+p.stock*p.price},0);
+    var held=list.filter(function(p){return p.hold}).length;
+    var boxStock=BOXES.reduce(function(a,b){return a+b.stock},0);
+    $('#homeStats').innerHTML=stat('','상품 종수',list.length)+stat('s','총 재고수량',won0(totQty))+stat('','재고 가치',won(val))+stat('e','단종 품목',held)+stat('','박스 보유',boxStock);
+  }
+  function renderInv(){
+    renderHomeStats();
+    var q=($('#invSearch').value||'').toLowerCase();
+    var list=Object.keys(PRODUCTS).map(function(c){return PRODUCTS[c]}).filter(function(p){return !q||p.code.toLowerCase().indexOf(q)>-1||p.name.toLowerCase().indexOf(q)>-1});
+    $('#invBody').innerHTML=list.map(function(p){
+      return '<tr><td class="mono">'+esc(p.code)+'</td><td>'+esc(p.name)+'</td>'+
+        '<td class="mono muted">'+p.L+'×'+p.W+'×'+p.H+'</td>'+
+        '<td class="num-c mono">'+p.w+'</td><td class="num-c mono">'+won0(p.price)+'</td>'+
+        '<td class="num-c mono" style="font-weight:600'+(p.stock<=0?';color:var(--err)':'')+'">'+won0(p.stock)+'</td>'+
+        '<td>'+(p.hold?'<span class="badge b-err">단종</span>':'<span class="badge b-ship">판매중</span>')+'</td></tr>';
+    }).join('')||'<tr><td colspan="7" class="muted" style="text-align:center;padding:24px">상품이 없습니다.</td></tr>';
+  }
+  function renderProducts(){
+    var q=($('#prodSearch').value||'').toLowerCase();
+    var list=Object.keys(PRODUCTS).map(function(c){return PRODUCTS[c]}).filter(function(p){return !q||p.code.toLowerCase().indexOf(q)>-1||p.name.toLowerCase().indexOf(q)>-1});
+    $('#prodBody').innerHTML=list.slice(0,400).map(function(p){var e=function(f,v){return '<td><input class="cell p-edit" data-code="'+esc(p.code)+'" data-f="'+f+'" value="'+v+'"></td>'};
+      return '<tr><td class="mono">'+esc(p.code)+'</td><td>'+esc(p.name)+'</td>'+e('w',p.w)+e('L',p.L)+e('W',p.W)+e('H',p.H)+e('price',p.price)+'<td class="num-c">'+'<input class="cell p-edit" data-code="'+esc(p.code)+'" data-f="stock" value="'+p.stock+'"></td>'+
+      '<td><input type="checkbox" class="p-hold" data-code="'+esc(p.code)+'"'+(p.hold?' checked':'')+'></td></tr>';
+    }).join('');
+  }
+  function renderBoxes(){
+    $('#boxBody').innerHTML=BOXES.map(function(b,i){var vol=Math.round(b.L*b.W*b.H*(SET.eta/100)/1000);var e=function(f,v){return '<td><input class="cell b-edit" data-i="'+i+'" data-f="'+f+'" value="'+v+'"></td>'};
+      return '<tr><td>'+esc(b.name)+'</td>'+e('L',b.L)+e('W',b.W)+e('H',b.H)+'<td class="num-c"><input class="cell b-edit" data-i="'+i+'" data-f="maxw" value="'+b.maxw+'"></td><td class="num-c mono">'+won0(vol)+'</td><td class="num-c"><input class="cell b-edit" data-i="'+i+'" data-f="stock" value="'+b.stock+'"></td><td><button class="btn danger sm b-del" data-i="'+i+'">삭제</button></td></tr>';
+    }).join('');
+  }
+  function renderDests(){
+    var ks=Object.keys(DESTS);$('#destCount').textContent=ks.length+'곳';
+    $('#destBody').innerHTML=ks.map(function(k){var d=DESTS[k];return '<tr><td>'+esc(d.region||'—')+'</td><td>'+esc(d.area||'—')+'</td><td><b>'+esc(d.name)+'</b></td><td class="muted">'+esc(d.addr||'—')+'</td><td><button class="btn danger sm d-del" data-k="'+esc(k)+'">삭제</button></td></tr>'}).join('')||'<tr><td colspan="5" class="muted" style="text-align:center;padding:22px">배송지가 없습니다.</td></tr>';
+  }
+  function renderRecv(){
+    $('#expPO').disabled=!RECV.length;
+    if(!RECV.length){$('#recvBody').innerHTML='<tr><td colspan="5" class="muted" style="text-align:center;padding:24px">재고 부족 품목이 없습니다. Order·패킹에서 생성하면 표시됩니다.</td></tr>';return;}
+    $('#recvBody').innerHTML=RECV.map(function(r,i){
+      return '<tr><td class="mono">'+esc(r.code)+'</td><td>'+esc(r.name)+'</td><td class="num-c mono">'+r.short+'</td>'+
+        '<td class="num-c"><input class="cell r-edit" data-i="'+i+'" value="'+r.recv+'"></td>'+
+        '<td><button class="btn sm r-in" data-i="'+i+'">입고 반영</button></td></tr>';
+    }).join('');
+  }
+  function renderAll(){renderInv();renderProducts();renderBoxes();renderDests();renderRecv();fillBoxSel();}
+
+  /* ---------- 이벤트 ---------- */
+  var drop=$('#drop');
+  $('#pick').addEventListener('click',function(){$('#fileInput').click()});
+  $('#fileInput').addEventListener('change',function(e){if(e.target.files[0])parseOrder(e.target.files[0])});
+  $('#sampleBtn').addEventListener('click',function(){setOrder(SAMPLE.map(function(l){return {po:l.po,dest:l.dest,code:l.code,name:(PRODUCTS[l.code]?PRODUCTS[l.code].name:l.code),qty:l.qty}}));toast('샘플 주문을 불러왔습니다')});
+  ['dragenter','dragover'].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.add('drag')})});
+  ['dragleave','drop'].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.remove('drag')})});
+  drop.addEventListener('drop',function(e){var f=e.dataTransfer.files[0];if(f)parseOrder(f)});
+  $('#genBtn').addEventListener('click',generate);
+  $('#expBtn').addEventListener('click',exportPack);
+  $('#eta').addEventListener('change',function(){SET.eta=Math.min(95,Math.max(30,num(this.value)||80));renderBoxes()});
+  $('#cap').addEventListener('change',function(){SET.cap=Math.max(1,num(this.value)||100)});
+
+  $('#loadMaster').addEventListener('click',function(){$('#mfileInput').click()});
+  $('#mfileInput').addEventListener('change',function(e){if(e.target.files[0])parseMaster(e.target.files[0])});
+  $('#invSearch').addEventListener('input',renderInv);
+
+  $('#prodSearch').addEventListener('input',renderProducts);
+  $('#prodBody').addEventListener('change',function(e){var el=e.target.closest('.p-edit');if(el){var p=PRODUCTS[el.dataset.code];if(p){p[el.dataset.f]=Math.max(0,num(el.value));renderInv();}return;}var h=e.target.closest('.p-hold');if(h){var p2=PRODUCTS[h.dataset.code];if(p2){p2.hold=h.checked;renderInv();}}});
+  $('#np-add').addEventListener('click',function(){var c=$('#np-code').value.trim();if(!c){toast('상품번호를 입력하세요');return;}
+    PRODUCTS[c]={code:c,bc:'',name:$('#np-name').value.trim()||c,w:num($('#np-w').value)||15,L:num($('#np-l').value)||150,W:num($('#np-W').value)||90,H:num($('#np-h').value)||20,price:num($('#np-p').value)||0,stock:num($('#np-s').value)||0,hold:false};
+    ['#np-code','#np-name','#np-w','#np-l','#np-W','#np-h','#np-p','#np-s'].forEach(function(s){$(s).value=''});renderProducts();renderInv();toast('상품을 추가했습니다');});
+
+  $('#boxBody').addEventListener('change',function(e){var el=e.target.closest('.b-edit');if(!el)return;BOXES[+el.dataset.i][el.dataset.f]=Math.max(0,num(el.value));renderBoxes();fillBoxSel();renderHomeStats();});
+  $('#boxBody').addEventListener('click',function(e){var el=e.target.closest('.b-del');if(!el)return;BOXES.splice(+el.dataset.i,1);renderBoxes();fillBoxSel();renderHomeStats();});
+  $('#nb-add').addEventListener('click',function(){var n=$('#nb-name').value.trim();if(!n){toast('상자종류를 입력하세요');return;}
+    BOXES.push({id:'BX'+Date.now(),name:n,L:num($('#nb-l').value)||500,W:num($('#nb-W').value)||300,H:num($('#nb-h').value)||400,maxw:num($('#nb-mw').value)||10000,stock:num($('#nb-s').value)||0});
+    ['#nb-name','#nb-l','#nb-W','#nb-h','#nb-mw','#nb-s'].forEach(function(s){$(s).value=''});renderBoxes();fillBoxSel();toast('박스를 추가했습니다');});
+
+  $('#destBody').addEventListener('click',function(e){var el=e.target.closest('.d-del');if(!el)return;delete DESTS[el.dataset.k];renderDests();});
+  $('#nd-add').addEventListener('click',function(){var n=$('#nd-name').value.trim();if(!n){toast('명칭을 입력하세요');return;}
+    DESTS[n]={name:n,region:$('#nd-region').value.trim(),area:$('#nd-area').value.trim(),addr:$('#nd-addr').value.trim()};
+    ['#nd-region','#nd-area','#nd-name','#nd-addr'].forEach(function(s){$(s).value=''});renderDests();toast('배송지를 추가했습니다');});
+
+  $('#recvBody').addEventListener('change',function(e){var el=e.target.closest('.r-edit');if(!el)return;RECV[+el.dataset.i].recv=Math.max(0,num(el.value));});
+  $('#recvBody').addEventListener('click',function(e){var el=e.target.closest('.r-in');if(!el)return;var r=RECV[+el.dataset.i];if(PRODUCTS[r.code]){PRODUCTS[r.code].stock+=r.recv;renderInv();toast(r.name+' '+r.recv+'개 입고 반영');}});
+  $('#expPO').addEventListener('click',function(){if(!RECV.length)return;var a=[['상품번호','바코드','상품명','수량','검수확인','수량(확인)']];RECV.forEach(function(r){var p=PRODUCTS[r.code]||{};a.push([r.code,p.bc||'',r.name,r.short,'',''])});var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a),'PurchseOrderList');XLSX.writeFile(wb,'구매발주목록.xlsx');toast('발주목록을 내보냈습니다');});
+
+  var TITLES={home:['재고 현황','현재 보유 재고와 상품 상태를 확인합니다.'],products:['상품','상품 크기·무게·단가·재고를 관리합니다.'],boxes:['박스','포장 박스의 크기·허용무게·보유수량을 관리합니다.'],dests:['배송지','물류창고(배송지)와 지역·주소를 관리합니다.'],order:['Order · 패킹','주문을 올려 보유 박스에 나눠 담고 재고를 차감합니다.'],recv:['발주 · 입고','재고 부족분을 발주하고 입고로 재고를 채웁니다.']};
+  $('#nav').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;
+    $$('#nav button').forEach(function(x){x.setAttribute('aria-current',x===b)});var v=b.dataset.v;
+    $$('.view').forEach(function(s){s.classList.toggle('active',s.id==='v-'+v)});
+    $('#pt').textContent=TITLES[v][0];$('#ps').textContent=TITLES[v][1];
+    if(v==='home')renderInv();if(v==='products')renderProducts();if(v==='boxes')renderBoxes();if(v==='dests')renderDests();if(v==='recv')renderRecv();});
+
+  loadMaster(MASTER); renderInv(); renderProducts(); renderBoxes(); renderDests(); renderRecv();
+})();
+</script>
+</body>
+</html>
