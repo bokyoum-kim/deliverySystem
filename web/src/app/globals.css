@@ -55,6 +55,11 @@ button,
 input,
 select {
   font-family: inherit;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+  background: #fff;
 }
 
 .btn {

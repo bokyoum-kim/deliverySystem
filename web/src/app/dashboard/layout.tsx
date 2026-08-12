@@ -76,6 +76,21 @@ export default async function DashboardLayout({
               {item.label}
             </Link>
           ))}
+          {session.user.role === "ADMIN" && (
+            <Link
+              href="/dashboard/users"
+              style={{
+                display: "block",
+                padding: "10px 11px",
+                borderRadius: 8,
+                fontSize: 14,
+                color: "var(--sb-ink)",
+                textDecoration: "none",
+              }}
+            >
+              사용자 관리
+            </Link>
+          )}
         </nav>
 
         <div
