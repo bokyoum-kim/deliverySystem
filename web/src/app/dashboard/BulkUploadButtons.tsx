@@ -69,6 +69,9 @@ export default function BulkUploadButtons() {
       <button className="btn ghost sm" type="button" onClick={() => stockInputRef.current?.click()}>
         재고 대량 업데이트
       </button>
+      <a className="btn ghost sm" href="/api/templates/stock">
+        템플릿 다운로드
+      </a>
 
       {msg && (
         <span className={"msg " + msg.type} style={{ display: "inline-block", marginTop: 0 }}>

@@ -1,7 +1,8 @@
 import { auth } from "@/auth";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import SignOutButton from "./sign-out-button";
+import { NAV_ICONS } from "./nav-icons";
+import NavLink from "./NavLink";
 
 const NAV = [
   { href: "/dashboard", label: "재고 현황" },
@@ -61,35 +62,14 @@ export default async function DashboardLayout({
 
         <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           {NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              style={{
-                display: "block",
-                padding: "10px 11px",
-                borderRadius: 8,
-                fontSize: 14,
-                color: "var(--sb-ink)",
-                textDecoration: "none",
-              }}
-            >
+            <NavLink key={item.href} href={item.href} icon={NAV_ICONS[item.href]}>
               {item.label}
-            </Link>
+            </NavLink>
           ))}
           {session.user.role === "ADMIN" && (
-            <Link
-              href="/dashboard/users"
-              style={{
-                display: "block",
-                padding: "10px 11px",
-                borderRadius: 8,
-                fontSize: 14,
-                color: "var(--sb-ink)",
-                textDecoration: "none",
-              }}
-            >
+            <NavLink href="/dashboard/users" icon={NAV_ICONS["/dashboard/users"]}>
               사용자 관리
-            </Link>
+            </NavLink>
           )}
         </nav>
 

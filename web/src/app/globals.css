@@ -388,6 +388,13 @@ input.cell {
   width: 72px;
   text-align: right;
 }
+.ico {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  opacity: 0.9;
+}
+
 .search {
   border: 1px solid var(--line);
   border-radius: 8px;
