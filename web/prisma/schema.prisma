@@ -1,0 +1,236 @@
+// 물류관리 시스템 스키마
+// CLAUDE.md의 ERD(12엔티티)를 기준으로 함. Supabase(PostgreSQL) 사용.
+// DATABASE_URL = 트랜잭션 풀러(런타임용), DIRECT_URL = 세션 풀러(마이그레이션용).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------- 인증 (NextAuth/Auth.js) ----------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  passwordHash  String?
+  emailVerified DateTime?
+  image         String?
+  role          String    @default("MEMBER") // ADMIN | MEMBER
+  accounts      Account[]
+  sessions      Session[]
+  orderBatches  OrderBatch[]
+  createdAt     DateTime  @default(now())
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------- 마스터 데이터 ----------
+
+model Product {
+  // 상품마스터
+  id         String   @id @default(cuid())
+  code       String   @unique // 상품번호
+  barcode    String?
+  name       String
+  weightG    Int      @default(0)
+  lengthMm   Int      @default(0)
+  widthMm    Int      @default(0)
+  heightMm   Int      @default(0)
+  price      Int      @default(0)
+  status     String   @default("ACTIVE") // ACTIVE | DISCONTINUED (단종=HoldItem)
+  stock      Stock?
+  orderLines     OrderLine[]
+  boxItems       BoxItem[]
+  purchaseOrders PurchaseOrder[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Stock {
+  // 재고 (상품마스터 1:1)
+  id        String   @id @default(cuid())
+  productId String   @unique
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+model Warehouse {
+  // 물류센터 (= Destination/FC)
+  id          String       @id @default(cuid())
+  code        String       @unique
+  name        String // 명칭 (FC명)
+  region      String? // 통합지역
+  area        String? // 지역
+  address     String?
+  orderSheets OrderSheet[]
+}
+
+model BoxSpec {
+  // 박스규격
+  id         String @id @default(cuid())
+  name       String
+  lengthMm   Int
+  widthMm    Int
+  heightMm   Int
+  maxWeightG Int
+  stockQty   Int    @default(0)
+  boxes      Box[]
+}
+
+model PalletSpec {
+  // 팔레트규격
+  id          String   @id @default(cuid())
+  name        String   @default("표준 팔레트")
+  maxBoxCount Int      @default(10)
+  pallets     Pallet[]
+}
+
+model ReasonCode {
+  // 사유코드 (처리유형: 단종, 재고부족 등)
+  id         String      @id @default(cuid())
+  code       String      @unique
+  label      String
+  orderLines OrderLine[]
+}
+
+// ---------- 거래 데이터 ----------
+
+model OrderBatch {
+  // 오더패킹 히스토리 = 업로드한 Order 파일 1건 (날짜+순번 키)
+  id             String   @id @default(cuid())
+  key            String   @unique // 예: 20260809-001
+  dateKey        String
+  status         String   @default("DRAFT") // DRAFT | CONFIRMED | REFLECTED
+  createdById    String?
+  createdBy      User?    @relation(fields: [createdById], references: [id])
+  createdAt      DateTime @default(now())
+  confirmedAt    DateTime?
+  reflectedAt    DateTime?
+  eta            Int      @default(80) // 충진율 %
+  cap            Int      @default(100) // 박스당 최대 수량
+  stockDeltas    Json? // 출고확정 시 차감한 상품재고 {productId: qty} — 되돌리기용
+  boxDeltas      Json? // 출고확정 시 차감한 박스재고 {boxSpecId: qty} — 되돌리기용
+  orderSheets    OrderSheet[]
+  purchaseOrders PurchaseOrder[]
+  pallets        Pallet[]
+
+  @@index([dateKey])
+}
+
+model OrderSheet {
+  // 발주서 (발주번호 1건 = FC 1곳)
+  id            String     @id @default(cuid())
+  batchId       String
+  batch         OrderBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  poNumber      String // 발주번호
+  destName      String // 배송지명(주문 원본 표기, Warehouse 매칭 실패해도 항상 보존)
+  warehouseId   String?
+  warehouse     Warehouse? @relation(fields: [warehouseId], references: [id])
+  expectedDate  DateTime?
+  returnAddress String?
+  lines         OrderLine[]
+  boxes         Box[]
+
+  @@unique([batchId, poNumber])
+}
+
+model OrderLine {
+  // 발주라인 (허브 엔티티)
+  id           String      @id @default(cuid())
+  sheetId      String
+  sheet        OrderSheet  @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product     @relation(fields: [productId], references: [id])
+  orderedQty   Int
+  confirmedQty Int
+  status       String // SHIP | PURCHASE | RETURN (출고/발주/반송)
+  reasonCodeId String?
+  reasonCode   ReasonCode? @relation(fields: [reasonCodeId], references: [id])
+}
+
+model Box {
+  // 박스 (한 박스 = 하나의 발주번호 물품만 포함)
+  id        String   @id @default(cuid())
+  sheetId   String
+  sheet     OrderSheet @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+  boxSpecId String
+  boxSpec   BoxSpec  @relation(fields: [boxSpecId], references: [id])
+  boxNo     Int // 배송지 내 순번
+  palletId  String?
+  pallet    Pallet?  @relation(fields: [palletId], references: [id])
+  items     BoxItem[]
+}
+
+model BoxItem {
+  // 박스내역
+  id        String  @id @default(cuid())
+  boxId     String
+  box       Box     @relation(fields: [boxId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  qty       Int
+}
+
+model Pallet {
+  // 팔레트 (배송지 박스 10개 초과 시 10개 단위로 구성)
+  id           String     @id @default(cuid())
+  batchId      String
+  batch        OrderBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  palletSpecId String
+  palletSpec   PalletSpec @relation(fields: [palletSpecId], references: [id])
+  destKey      String // 배송지명 (그룹핑 키)
+  palletNo     Int
+  boxes        Box[]
+}
+
+model PurchaseOrder {
+  // 구매발주 (= 재고부족분 발주·입고, 발주·입고 탭)
+  id          String     @id @default(cuid())
+  batchId     String
+  batch       OrderBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product    @relation(fields: [productId], references: [id])
+  shortQty    Int
+  receivedQty Int        @default(0)
+  status      String     @default("PENDING") // PENDING | RECEIVED | REFLECTED
+  createdAt   DateTime   @default(now())
+}

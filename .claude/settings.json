@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -n \"var byDest={},holds=\\\\[\\\\],packTotal\\\\|holds.push\" \"물류관리시스템 \\(2\\).html\")",
+      "Bash(python3 \"/c/Users/김보겸/AppData/Local/Temp/claude/c--Users-----Desktop-deliverySystem/d386f587-5dd1-4655-95e7-f9742c44f14b/scratchpad/test_fix5.py\")",
+      "Bash(curl -sf http://localhost:3000/ -o /dev/null -w \"HTTP %{http_code}\\\\n\")",
+      "Bash(mkdir -p \"/c/Users/김보겸/Desktop/deliverySystem/web/src/app/api/batches/[id]/export\" \\\\ *)",
+      "Bash(python3 \"/c/Users/김보겸/AppData/Local/Temp/claude/c--Users-----Desktop-deliverySystem/d386f587-5dd1-4655-95e7-f9742c44f14b/scratchpad/test_full_flow.py\")",
+      "Bash(python3 \"/c/Users/김보겸/AppData/Local/Temp/claude/c--Users-----Desktop-deliverySystem/d386f587-5dd1-4655-95e7-f9742c44f14b/scratchpad/test_full_flow2.py\")",
+      "Bash(cp \"/c/Users/김보겸/AppData/Local/Temp/claude/c--Users-----Desktop-deliverySystem/d386f587-5dd1-4655-95e7-f9742c44f14b/scratchpad/make_pallet_order.mjs\" \"/c/Users/김보겸/Desktop/deliverySystem/web/make_pallet_order.mjs\")",
+      "Bash(python3 \"/c/Users/김보겸/AppData/Local/Temp/claude/c--Users-----Desktop-deliverySystem/d386f587-5dd1-4655-95e7-f9742c44f14b/scratchpad/test_pallet_and_exports.py\")",
+      "Bash(gh --version)",
+      "Bash(gh auth *)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\김보겸\\Desktop\\deliverySystem\\web\\src\\app\\api\\batches\\[id]",
+      "C:\\Users\\김보겸\\AppData\\Local\\Temp\\claude\\c--Users-----Desktop-deliverySystem\\d386f587-5dd1-4655-95e7-f9742c44f14b\\scratchpad"
+    ]
+  }
+}

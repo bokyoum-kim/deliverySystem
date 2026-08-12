@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "OrderBatch" ADD COLUMN     "boxDeltas" JSONB,
+ADD COLUMN     "cap" INTEGER NOT NULL DEFAULT 100,
+ADD COLUMN     "eta" INTEGER NOT NULL DEFAULT 80,
+ADD COLUMN     "stockDeltas" JSONB;
