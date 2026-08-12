@@ -1,11 +1,39 @@
 import { prisma } from "@/lib/prisma";
-import { createProduct, updateProduct, deleteProduct } from "./actions";
+import { createProduct } from "./actions";
+import SearchBox from "../SearchBox";
+import ProductBulkUpload from "./ProductBulkUpload";
+import ProductsTable, { type ProductRow } from "./ProductsTable";
 
-export default async function ProductsPage() {
+export default async function ProductsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q } = await searchParams;
+
   const products = await prisma.product.findMany({
     include: { stock: true },
     orderBy: { code: "asc" },
   });
+
+  const query = (q ?? "").toLowerCase().trim();
+  const filtered = query
+    ? products.filter((p) => p.code.toLowerCase().includes(query) || p.name.toLowerCase().includes(query))
+    : products;
+
+  const rows: ProductRow[] = filtered.map((p) => ({
+    id: p.id,
+    code: p.code,
+    barcode: p.barcode,
+    name: p.name,
+    weightG: p.weightG,
+    lengthMm: p.lengthMm,
+    widthMm: p.widthMm,
+    heightMm: p.heightMm,
+    price: p.price,
+    status: p.status,
+    stockQty: p.stock?.quantity ?? 0,
+  }));
 
   return (
     <section>
@@ -15,7 +43,10 @@ export default async function ProductsPage() {
       <div className="card">
         <div className="card-h">
           <h3>상품 마스터</h3>
-          <span className="muted" style={{ fontSize: 13 }}>{products.length}개</span>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <SearchBox placeholder="검색" />
+            <ProductBulkUpload />
+          </div>
         </div>
 
         <form
@@ -40,99 +71,15 @@ export default async function ProductsPage() {
           <input className="txt mono" name="stock" placeholder="재고" style={{ width: 70 }} />
           <button className="btn sm" type="submit">추가</button>
         </form>
+        <p className="hint" style={{ padding: "0 18px 10px", margin: 0 }}>
+          대량 등록·수정: 엑셀에 상품번호(필수)·바코드·상품명·무게·가로·세로·높이·단가·재고·단종 컬럼을 넣어
+          업로드하면, 있는 상품번호는 값을 갱신하고 없는 상품번호는 새로 추가합니다.
+        </p>
 
         <div style={{ overflowX: "auto" }}>
-          <table>
-            <thead>
-              <tr>
-                <th>상품번호</th>
-                <th>바코드</th>
-                <th>상품명</th>
-                <th>무게</th>
-                <th>가로</th>
-                <th>세로</th>
-                <th>높이</th>
-                <th>단가</th>
-                <th className="num-c">재고</th>
-                <th>단종</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map((p) => (
-                <tr key={p.id}>
-                  <td colSpan={11} style={{ padding: 0 }}>
-                    <form
-                      action={updateProduct}
-                      style={{ display: "flex", alignItems: "center" }}
-                    >
-                      <input type="hidden" name="id" value={p.id} />
-                      <Cell width={110}>
-                        <span className="mono">{p.code}</span>
-                      </Cell>
-                      <Cell width={120}>
-                        <input className="txt mono" name="barcode" defaultValue={p.barcode ?? ""} style={{ width: "100%" }} />
-                      </Cell>
-                      <Cell width={200}>
-                        <input className="txt" name="name" defaultValue={p.name} style={{ width: "100%" }} />
-                      </Cell>
-                      <Cell width={70}>
-                        <input className="txt mono" name="weightG" defaultValue={p.weightG} style={{ width: "100%" }} />
-                      </Cell>
-                      <Cell width={60}>
-                        <input className="txt mono" name="lengthMm" defaultValue={p.lengthMm} style={{ width: "100%" }} />
-                      </Cell>
-                      <Cell width={60}>
-                        <input className="txt mono" name="widthMm" defaultValue={p.widthMm} style={{ width: "100%" }} />
-                      </Cell>
-                      <Cell width={60}>
-                        <input className="txt mono" name="heightMm" defaultValue={p.heightMm} style={{ width: "100%" }} />
-                      </Cell>
-                      <Cell width={70}>
-                        <input className="txt mono" name="price" defaultValue={p.price} style={{ width: "100%" }} />
-                      </Cell>
-                      <Cell width={70}>
-                        <input
-                          className="txt mono"
-                          name="stock"
-                          defaultValue={p.stock?.quantity ?? 0}
-                          style={{ width: "100%", textAlign: "right" }}
-                        />
-                      </Cell>
-                      <Cell width={50}>
-                        <input type="checkbox" name="discontinued" defaultChecked={p.status === "DISCONTINUED"} />
-                      </Cell>
-                      <Cell width={130}>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <button className="btn ghost sm" type="submit">저장</button>
-                          <button className="btn ghost sm" type="submit" formAction={deleteProduct}>
-                            삭제
-                          </button>
-                        </div>
-                      </Cell>
-                    </form>
-                  </td>
-                </tr>
-              ))}
-              {products.length === 0 && (
-                <tr>
-                  <td colSpan={11} className="muted" style={{ textAlign: "center", padding: 24 }}>
-                    등록된 상품이 없습니다.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          <ProductsTable products={rows} />
         </div>
       </div>
     </section>
-  );
-}
-
-function Cell({ children, width }: { children: React.ReactNode; width: number }) {
-  return (
-    <div style={{ padding: "6px 8px", width, flex: `0 0 ${width}px`, minWidth: 0 }}>
-      {children}
-    </div>
   );
 }
