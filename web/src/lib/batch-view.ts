@@ -22,6 +22,7 @@ export type BatchDestView = {
 };
 export type BatchHoldView = { po: string; dest: string; code: string; name: string; qty: number };
 export type BatchShortView = { code: string; name: string; short: number };
+export type BatchBoxUsageView = { boxSpecId: string | null; name: string; count: number };
 
 export type BatchDetail = {
   id: string;
@@ -39,6 +40,7 @@ export type BatchDetail = {
   boxesUsed: number;
   palletTotal: number;
   shipTotal: number;
+  boxUsage: BatchBoxUsageView[];
 };
 
 export async function getBatchDetail(batchId: string): Promise<BatchDetail | null> {
@@ -64,6 +66,7 @@ export async function getBatchDetail(batchId: string): Promise<BatchDetail | nul
   let shipTotal = 0;
   let boxesUsed = 0;
   const palletNos = new Set<string>();
+  const boxUsageMap = new Map<string, BatchBoxUsageView>();
 
   for (const sheet of batch.orderSheets) {
     if (!destMap.has(sheet.destName)) destMap.set(sheet.destName, { dest: sheet.destName, qty: 0, boxes: [] });
@@ -85,6 +88,11 @@ export async function getBatchDetail(batchId: string): Promise<BatchDetail | nul
 
     for (const box of sheet.boxes) {
       boxesUsed++;
+      const usageKey = box.boxSpecId;
+      const usageName = box.boxSpec?.name ?? "";
+      const usage = boxUsageMap.get(usageKey) ?? { boxSpecId: usageKey, name: usageName, count: 0 };
+      usage.count++;
+      boxUsageMap.set(usageKey, usage);
       destView.boxes.push({
         id: box.id,
         boxNo: box.boxNo,
@@ -133,5 +141,6 @@ export async function getBatchDetail(batchId: string): Promise<BatchDetail | nul
     boxesUsed,
     palletTotal: palletNos.size,
     shipTotal,
+    boxUsage: [...boxUsageMap.values()],
   };
 }

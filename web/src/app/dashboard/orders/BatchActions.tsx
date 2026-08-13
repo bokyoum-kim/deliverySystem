@@ -9,11 +9,13 @@ export default function BatchActions({
   status,
   hasPallets,
   hasHolds,
+  shortBoxMsgs,
 }: {
   batchId: string;
   status: string;
   hasPallets: boolean;
   hasHolds: boolean;
+  shortBoxMsgs: string[];
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -53,9 +55,14 @@ export default function BatchActions({
           >
             히스토리 반영 · 화면 초기화
           </button>
-          <span className="badge b-ship">재고 차감 완료</span>
         </>
       )}
+      {shortBoxMsgs.length ? (
+        <span className="badge b-err">보유 박스 부족: {shortBoxMsgs.join(", ")}</span>
+      ) : (
+        <span className="badge b-ship">박스 충분</span>
+      )}
+      {status === "CONFIRMED" && <span className="badge b-ship">재고 차감 완료</span>}
       <a className="btn ghost sm" href={`/api/batches/${batchId}/export`}>
         엑셀 내보내기
       </a>

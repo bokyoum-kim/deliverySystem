@@ -7,8 +7,9 @@ import type { OrderLineInput } from "@/lib/packing";
 import { generatePacking } from "./actions";
 
 type BoxSpecOpt = { id: string; name: string; lengthMm: number; widthMm: number; heightMm: number; stockQty: number };
+type ProductOpt = { code: string; discontinued: boolean };
 
-export default function UploadPanel({ boxSpecs }: { boxSpecs: BoxSpecOpt[] }) {
+export default function UploadPanel({ boxSpecs, products }: { boxSpecs: BoxSpecOpt[]; products: ProductOpt[] }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [lines, setLines] = useState<OrderLineInput[] | null>(null);
@@ -92,6 +93,8 @@ export default function UploadPanel({ boxSpecs }: { boxSpecs: BoxSpecOpt[] }) {
 
   const poCount = new Set(lines.map((l) => l.po)).size;
   const destCount = new Set(lines.map((l) => l.dest)).size;
+  const discontinuedByCode = new Map(products.map((p) => [p.code, p.discontinued]));
+  const holdCount = lines.filter((l) => discontinuedByCode.get(l.code)).length;
 
   return (
     <div>
@@ -107,6 +110,14 @@ export default function UploadPanel({ boxSpecs }: { boxSpecs: BoxSpecOpt[] }) {
         <div className="stat">
           <div className="l">배송지</div>
           <div className="n mono">{destCount}</div>
+        </div>
+        <div className="stat e">
+          <div className="l">단종(반송)</div>
+          <div className="n mono">{holdCount}</div>
+        </div>
+        <div className="stat">
+          <div className="l">상품 종류</div>
+          <div className="n mono">{products.length}</div>
         </div>
       </div>
 
