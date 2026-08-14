@@ -6,6 +6,9 @@ import UploadPanel from "./UploadPanel";
 import BatchActions from "./BatchActions";
 import { PackDestCards, HoldsTable } from "@/components/PackDestCards";
 
+// 대량 발주서 Packing List 생성/출고확정은 상품·박스 종류가 많으면 시간이 걸릴 수 있어 여유를 둠
+export const maxDuration = 60;
+
 export default async function OrdersPage() {
   const active = await getActiveBatch();
 
