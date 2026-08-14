@@ -1,4 +1,5 @@
 import { getOrderStats } from "@/lib/stats";
+import { RankBars, TrendChart } from "./charts";
 
 function won(n: number) {
   return n.toLocaleString() + "원";
@@ -6,20 +7,26 @@ function won(n: number) {
 function monthLabel(m: string) {
   return m.length === 6 ? `${m.slice(0, 4)}-${m.slice(4, 6)}` : m;
 }
-function Bar({ value, max }: { value: number; max: number }) {
-  const pct = max > 0 ? Math.max(2, Math.round((value / max) * 100)) : 0;
-  return (
-    <div className="bar-track">
-      <div className="bar-fill" style={{ width: `${pct}%` }} />
-    </div>
-  );
-}
 
 export default async function StatsPage() {
   const stats = await getOrderStats();
-  const maxMonthlyAmount = Math.max(0, ...stats.monthly.map((m) => m.amount));
-  const maxProductAmount = Math.max(0, ...stats.topProductsByAmount.map((p) => p.amount));
-  const maxDestAmount = Math.max(0, ...stats.destStats.map((d) => d.amount));
+
+  const trendData = [...stats.monthly].reverse().map((m) => ({
+    label: monthLabel(m.month),
+    qty: m.qty,
+    amount: m.amount,
+    lines: m.lines,
+  }));
+  const productItems = stats.topProductsByAmount.map((p) => ({
+    label: `${p.name} (${p.code})`,
+    value: p.amount,
+    sub: `수량 ${p.qty.toLocaleString()}`,
+  }));
+  const destItems = stats.destStats.map((d) => ({
+    label: d.dest,
+    value: d.amount,
+    sub: `발주 ${d.poCount}건 · 수량 ${d.qty.toLocaleString()}`,
+  }));
 
   return (
     <section>
@@ -63,98 +70,31 @@ export default async function StatsPage() {
         <>
           <div className="card">
             <div className="card-h">
-              <h3>월별 발주 추이</h3>
+              <h3>월별 발주 금액 추이</h3>
               <span className="muted" style={{ fontSize: 13 }}>{stats.monthly.length}개월</span>
             </div>
-            <div style={{ overflowX: "auto" }}>
-              <table>
-                <thead>
-                  <tr>
-                    <th>월</th>
-                    <th className="num-c">발주 라인</th>
-                    <th className="num-c">발주 수량</th>
-                    <th className="num-c">발주 금액</th>
-                    <th style={{ width: 160 }}>비중</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.monthly.map((m) => (
-                    <tr key={m.month}>
-                      <td className="mono">{monthLabel(m.month)}</td>
-                      <td className="num-c mono">{m.lines.toLocaleString()}</td>
-                      <td className="num-c mono">{m.qty.toLocaleString()}</td>
-                      <td className="num-c mono">{won(m.amount)}</td>
-                      <td><Bar value={m.amount} max={maxMonthlyAmount} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div style={{ padding: "6px 18px 18px" }}>
+              <TrendChart data={trendData} />
             </div>
           </div>
 
           <div className="card" style={{ marginTop: 14 }}>
             <div className="card-h">
-              <h3>상품별 발주 TOP 20 (금액 기준)</h3>
+              <h3>상품별 발주 TOP 8 (금액 기준)</h3>
               <span className="muted" style={{ fontSize: 13 }}>전체 {stats.totalProducts}종</span>
             </div>
-            <div style={{ overflowX: "auto" }}>
-              <table>
-                <thead>
-                  <tr>
-                    <th>상품번호</th>
-                    <th>상품명</th>
-                    <th className="num-c">발주 라인</th>
-                    <th className="num-c">발주 수량</th>
-                    <th className="num-c">발주 금액</th>
-                    <th style={{ width: 160 }}>비중</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.topProductsByAmount.map((p) => (
-                    <tr key={p.code}>
-                      <td className="mono">{p.code}</td>
-                      <td>{p.name}</td>
-                      <td className="num-c mono">{p.lines.toLocaleString()}</td>
-                      <td className="num-c mono">{p.qty.toLocaleString()}</td>
-                      <td className="num-c mono">{won(p.amount)}</td>
-                      <td><Bar value={p.amount} max={maxProductAmount} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div style={{ padding: "6px 18px 18px" }}>
+              <RankBars items={productItems} top={8} unit="원" />
             </div>
           </div>
 
           <div className="card" style={{ marginTop: 14 }}>
             <div className="card-h">
-              <h3>배송지별 발주 현황</h3>
+              <h3>배송지별 발주 금액</h3>
               <span className="muted" style={{ fontSize: 13 }}>{stats.destStats.length}곳</span>
             </div>
-            <div style={{ overflowX: "auto" }}>
-              <table>
-                <thead>
-                  <tr>
-                    <th>배송지</th>
-                    <th className="num-c">발주번호</th>
-                    <th className="num-c">발주 라인</th>
-                    <th className="num-c">발주 수량</th>
-                    <th className="num-c">발주 금액</th>
-                    <th style={{ width: 160 }}>비중</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.destStats.map((d) => (
-                    <tr key={d.dest}>
-                      <td>{d.dest}</td>
-                      <td className="num-c mono">{d.poCount.toLocaleString()}</td>
-                      <td className="num-c mono">{d.lines.toLocaleString()}</td>
-                      <td className="num-c mono">{d.qty.toLocaleString()}</td>
-                      <td className="num-c mono">{won(d.amount)}</td>
-                      <td><Bar value={d.amount} max={maxDestAmount} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div style={{ padding: "6px 18px 18px" }}>
+              <RankBars items={destItems} top={8} unit="원" />
             </div>
           </div>
         </>
