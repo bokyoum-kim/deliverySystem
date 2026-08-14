@@ -424,6 +424,7 @@ input.cell {
   border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
+  white-space: nowrap;
 }
 .b-ship {
   background: var(--ship-bg);
