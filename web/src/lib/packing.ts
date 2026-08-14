@@ -30,6 +30,11 @@ export type OrderLineInput = {
   code: string;
   name: string;
   qty: number;
+  // 발주서 원본의 금액 정보 — 패킹 계산에는 쓰이지 않고 통계용으로 그대로 저장된다
+  unitCost?: number;
+  supplyPrice?: number;
+  vat?: number;
+  totalAmount?: number;
 };
 
 export type PackedItem = { code: string; name: string; po: string; qty: number };

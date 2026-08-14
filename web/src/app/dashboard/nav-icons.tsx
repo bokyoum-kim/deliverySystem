@@ -48,6 +48,11 @@ export const NAV_ICONS: Record<string, React.ReactNode> = {
       <path d="M4 4h16v6H4zM4 14h16v6H4M8 7h4M8 17h4" />
     </svg>
   ),
+  "/dashboard/stats": (
+    <svg {...common}>
+      <path d="M4 20V10M11 20V4M18 20v-7" />
+    </svg>
+  ),
   "/dashboard/users": (
     <svg {...common}>
       <circle cx="12" cy="8" r="3.5" />

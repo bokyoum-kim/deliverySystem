@@ -146,6 +146,10 @@ export async function generatePacking(
             orderedQty: l.qty,
             confirmedQty: l.qty,
             status: isHold ? "RETURN" : "SHIP",
+            unitCost: l.unitCost ?? 0,
+            supplyPrice: l.supplyPrice ?? 0,
+            vat: l.vat ?? 0,
+            totalAmount: l.totalAmount ?? 0,
           };
         })
         .filter((r): r is NonNullable<typeof r> => r !== null);

@@ -51,6 +51,10 @@ export async function parseOrderFile(file: File): Promise<OrderLineInput[]> {
     code: col(headers, ["상품번호"]),
     name: col(headers, ["상품명", "상품이름"]),
     qty: col(headers, ["확정수량"]),
+    unitCost: col(headers, ["매입가"]),
+    supplyPrice: col(headers, ["공급가"]),
+    vat: col(headers, ["부가세"]),
+    totalAmount: col(headers, ["총발주매입금"]),
   };
   if (ci.qty < 0) ci.qty = col(headers, ["발주수량", "수량"]);
   if (ci.code < 0 || ci.dest < 0 || ci.qty < 0) {
@@ -70,7 +74,17 @@ export async function parseOrderFile(file: File): Promise<OrderLineInput[]> {
     if (qty <= 0) continue;
     const dest = String(row[ci.dest] ?? "").trim();
     const name = ci.name > -1 ? String(row[ci.name] ?? "").trim() : code;
-    lines.push({ po: ci.po > -1 ? String(row[ci.po]).trim() : "", dest, code, name, qty });
+    lines.push({
+      po: ci.po > -1 ? String(row[ci.po]).trim() : "",
+      dest,
+      code,
+      name,
+      qty,
+      unitCost: ci.unitCost > -1 ? num(row[ci.unitCost]) : undefined,
+      supplyPrice: ci.supplyPrice > -1 ? num(row[ci.supplyPrice]) : undefined,
+      vat: ci.vat > -1 ? num(row[ci.vat]) : undefined,
+      totalAmount: ci.totalAmount > -1 ? num(row[ci.totalAmount]) : undefined,
+    });
   }
   if (!lines.length) throw new Error("유효한 주문 라인을 찾지 못했습니다.");
   return lines;

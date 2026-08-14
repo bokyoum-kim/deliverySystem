@@ -185,6 +185,10 @@ model OrderLine {
   status       String // SHIP | PURCHASE | RETURN (출고/발주/반송)
   reasonCodeId String?
   reasonCode   ReasonCode? @relation(fields: [reasonCodeId], references: [id])
+  unitCost     Int      @default(0) // 매입가 (발주서 원본 값)
+  supplyPrice  Int      @default(0) // 공급가
+  vat          Int      @default(0) // 부가세
+  totalAmount  Int      @default(0) // 총발주매입금 — 통계 대시보드의 금액 기준
 }
 
 model Box {

@@ -12,6 +12,7 @@ const NAV = [
   { href: "/dashboard/orders", label: "Order · 패킹" },
   { href: "/dashboard/history", label: "오더패킹 히스토리" },
   { href: "/dashboard/receiving", label: "발주 · 입고" },
+  { href: "/dashboard/stats", label: "통계" },
 ];
 
 export default async function DashboardLayout({
