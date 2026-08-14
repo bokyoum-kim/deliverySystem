@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { reflectBatchForm } from "../orders/actions";
 
 export default async function HistoryPage() {
   const batches = await prisma.orderBatch.findMany({
-    where: { status: "REFLECTED" },
-    orderBy: { reflectedAt: "desc" },
+    where: { status: { in: ["REFLECTED", "CONFIRMED"] } },
+    orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     include: {
       orderSheets: { select: { poNumber: true } },
       purchaseOrders: { select: { id: true } },
@@ -37,14 +38,25 @@ export default async function HistoryPage() {
             <tbody>
               {batches.map((b) => {
                 const poCount = new Set(b.orderSheets.map((s) => s.poNumber)).size;
+                const reflected = b.status === "REFLECTED";
                 return (
                   <tr key={b.id}>
                     <td className="mono">{b.key}</td>
-                    <td className="mono">{b.reflectedAt?.toLocaleString("ko-KR")}</td>
+                    <td className="mono">
+                      {reflected ? b.reflectedAt?.toLocaleString("ko-KR") : <span className="badge b-warn">미반영</span>}
+                    </td>
                     <td className="num-c mono">{poCount}</td>
                     <td className="num-c mono">{b._count.pallets || "-"}</td>
                     <td className="num-c mono">{b.purchaseOrders.length}</td>
                     <td style={{ display: "flex", gap: 6 }}>
+                      {!reflected && (
+                        <form action={reflectBatchForm}>
+                          <input type="hidden" name="batchId" value={b.id} />
+                          <button className="btn sm" type="submit">
+                            반영
+                          </button>
+                        </form>
+                      )}
                       <Link className="btn ghost sm" href={`/dashboard/history/${b.id}`}>
                         상세
                       </Link>

@@ -321,3 +321,10 @@ export async function reflectBatch(batchId: string) {
   revalidatePath("/dashboard/history");
   revalidatePath("/dashboard/receiving");
 }
+
+// 오더패킹 히스토리 화면의 <form action> 버튼에서 바로 쓰는 최소 래퍼 (batchId를 FormData로 받음)
+export async function reflectBatchForm(formData: FormData) {
+  const batchId = String(formData.get("batchId") ?? "");
+  if (!batchId) return;
+  await reflectBatch(batchId);
+}
