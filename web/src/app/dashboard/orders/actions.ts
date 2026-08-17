@@ -49,6 +49,7 @@ export async function generatePacking(
       lengthMm: p.lengthMm,
       widthMm: p.widthMm,
       heightMm: p.heightMm,
+      packQty: p.packQty,
       stock: p.stock?.quantity ?? 0,
       discontinued: p.status === "DISCONTINUED",
     });
@@ -83,6 +84,7 @@ export async function generatePacking(
         lengthMm: p.lengthMm,
         widthMm: p.widthMm,
         heightMm: p.heightMm,
+        packQty: p.packQty,
         stock: 0,
         discontinued: false,
       });

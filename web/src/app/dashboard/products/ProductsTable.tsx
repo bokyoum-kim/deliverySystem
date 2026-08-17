@@ -9,6 +9,7 @@ export type ProductRow = {
   code: string;
   barcode: string | null;
   name: string;
+  packQty: number;
   weightG: number;
   lengthMm: number;
   widthMm: number;
@@ -26,6 +27,7 @@ export default function ProductsTable({ products }: { products: ProductRow[] }) 
           <th>상품번호</th>
           <th>바코드</th>
           <th>상품명</th>
+          <th>포장수량</th>
           <th>무게</th>
           <th>가로</th>
           <th>세로</th>
@@ -41,7 +43,7 @@ export default function ProductsTable({ products }: { products: ProductRow[] }) 
         ))}
         {products.length === 0 && (
           <tr>
-            <td colSpan={10} className="muted" style={{ textAlign: "center", padding: 24 }}>
+            <td colSpan={11} className="muted" style={{ textAlign: "center", padding: 24 }}>
               상품이 없습니다.
             </td>
           </tr>
@@ -56,6 +58,7 @@ function Row({ product }: { product: ProductRow }) {
   const [f, setF] = useState({
     barcode: product.barcode ?? "",
     name: product.name,
+    packQty: product.packQty,
     weightG: product.weightG,
     lengthMm: product.lengthMm,
     widthMm: product.widthMm,
@@ -70,6 +73,7 @@ function Row({ product }: { product: ProductRow }) {
     fd.set("id", product.id);
     fd.set("barcode", next.barcode);
     fd.set("name", next.name);
+    fd.set("packQty", String(next.packQty));
     fd.set("weightG", String(next.weightG));
     fd.set("lengthMm", String(next.lengthMm));
     fd.set("widthMm", String(next.widthMm));
@@ -98,6 +102,7 @@ function Row({ product }: { product: ProductRow }) {
       <td className="mono">{product.code}</td>
       <td>{field("barcode", false)}</td>
       <td>{field("name", false)}</td>
+      <td>{field("packQty")}</td>
       <td>{field("weightG")}</td>
       <td>{field("lengthMm")}</td>
       <td>{field("widthMm")}</td>

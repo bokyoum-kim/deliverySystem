@@ -74,6 +74,7 @@ model Product {
   lengthMm   Int      @default(0)
   widthMm    Int      @default(0)
   heightMm   Int      @default(0)
+  packQty    Int      @default(1) // 포장수량 — 등록된 무게·가로·세로·높이는 이 수량 단위(포장) 기준값
   price      Int      @default(0)
   status     String   @default("ACTIVE") // ACTIVE | DISCONTINUED (단종=HoldItem)
   stock      Stock?

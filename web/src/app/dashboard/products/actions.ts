@@ -22,6 +22,7 @@ export async function createProduct(formData: FormData) {
       code,
       barcode: str(formData.get("barcode")) || null,
       name: str(formData.get("name")) || code,
+      packQty: num(formData.get("packQty"), 1),
       weightG: num(formData.get("weightG"), 15),
       lengthMm: num(formData.get("lengthMm"), 150),
       widthMm: num(formData.get("widthMm"), 90),
@@ -43,6 +44,7 @@ export async function updateProduct(formData: FormData) {
     data: {
       barcode: str(formData.get("barcode")) || null,
       name: str(formData.get("name")),
+      packQty: num(formData.get("packQty"), 1),
       weightG: num(formData.get("weightG")),
       lengthMm: num(formData.get("lengthMm")),
       widthMm: num(formData.get("widthMm")),
@@ -74,16 +76,20 @@ export async function bulkUpsertProducts(
   if (!aoa.length) return { error: "시트에서 데이터를 찾지 못했습니다." };
 
   const headers = (aoa[0] as unknown[]).map(normHeader);
+  const packIdx = findCol(headers, ["포장수량"]);
+  const stockIdx = findCol(headers, ["재고", "기초수량", "수량"]);
   const ic = {
     code: findCol(headers, ["상품번호"]),
     bc: findCol(headers, ["바코드"]),
     name: findCol(headers, ["상품명", "상품이름"]),
+    pack: packIdx,
     w: findCol(headers, ["무게"]),
     L: findCol(headers, ["가로"]),
     W: findCol(headers, ["세로"]),
     H: findCol(headers, ["높이"]),
     price: findCol(headers, ["가격", "단가"]),
-    stock: findCol(headers, ["재고", "기초수량", "수량"]),
+    // "포장수량"도 "수량"을 포함해 재고 컬럼으로 잘못 잡힐 수 있어 같은 컬럼이면 무시
+    stock: stockIdx === packIdx ? -1 : stockIdx,
     hold: findCol(headers, ["단종", "Hold"]),
   };
   if (ic.code < 0) return { error: "상품번호 컬럼을 찾지 못했습니다." };
@@ -100,6 +106,10 @@ export async function bulkUpsertProducts(
     if (ic.name > -1) {
       const n = String(row[ic.name] ?? "").trim();
       if (n) patch.name = n;
+    }
+    if (ic.pack > -1) {
+      const pq = parseNum(row[ic.pack]);
+      if (pq > 0) patch.packQty = pq;
     }
     if (ic.w > -1) patch.weightG = parseNum(row[ic.w]);
     if (ic.L > -1) patch.lengthMm = parseNum(row[ic.L]);
@@ -127,6 +137,7 @@ export async function bulkUpsertProducts(
           code,
           barcode: (patch.barcode as string | null) ?? null,
           name: (patch.name as string) || code,
+          packQty: (patch.packQty as number) ?? 1,
           weightG: (patch.weightG as number) ?? 15,
           lengthMm: (patch.lengthMm as number) ?? 150,
           widthMm: (patch.widthMm as number) ?? 90,

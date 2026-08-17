@@ -10,6 +10,7 @@ export type ProductLite = {
   lengthMm: number;
   widthMm: number;
   heightMm: number;
+  packQty: number; // 포장수량 — 등록된 무게·부피는 이 수량 단위(포장) 기준값
   stock: number;
   discontinued: boolean;
 };
@@ -122,13 +123,26 @@ function packDest(
     return a.code < b.code ? -1 : 1;
   });
 
+  // 등록된 가로·세로·높이·무게는 "포장수량" 단위(포장 1개) 기준값이므로, 부피·무게는
+  // 포장 단위(팩) 배수로만 채운다. 포장 단위에 못 미치는 나머지는 이미 열려 있는 그 박스에
+  // 부피·무게 계산 없이(공간을 차지하지 않는 것으로 보고) 그대로 얹는다.
+  function addToCur(code: string, name: string, po: string, qty: number) {
+    const last = cur[cur.length - 1];
+    if (last && last.code === code && last.po === po) last.qty += qty;
+    else cur.push({ code, name, po, qty });
+  }
+
   for (const ln of sorted) {
     // 발주번호가 바뀌면 박스에 여유가 있어도 새 박스로 넘어간다
     if (t && curPo !== null && curPo !== ln.po) closeB();
-    const pv = ln.pv;
-    const pw = ln.pw;
-    let rem = ln.ship;
-    while (rem > 0) {
+    const pv = ln.pv; // 포장(팩) 1개 부피
+    const pw = ln.pw; // 포장(팩) 1개 무게
+    const packQty = Math.max(1, productLookupCache.get(ln.code)?.packQty || 1);
+
+    let remPacks = Math.floor(ln.ship / packQty);
+    const looseUnits = ln.ship % packQty;
+
+    while (remPacks > 0) {
       if (!t) {
         openB();
         curPo = ln.po;
@@ -136,25 +150,32 @@ function packDest(
       const box = t!;
       const volCap = volCapOf(box, eta);
       const maxw = box.maxWeightG || Infinity;
-      const canC = cap - cc;
+      const canC = Math.floor((cap - cc) / packQty);
       const canV = pv > 0 ? Math.floor((volCap - cv) / pv) : Infinity;
       const canW = pw > 0 ? Math.floor((maxw - cw) / pw) : Infinity;
-      let fit = Math.min(canC, canV, canW, rem);
-      if (fit <= 0) {
+      let fitPacks = Math.min(canC, canV, canW, remPacks);
+      if (fitPacks <= 0) {
         if (cc === 0) {
-          fit = 1;
+          fitPacks = 1;
         } else {
           closeB();
           continue;
         }
       }
-      const last = cur[cur.length - 1];
-      if (last && last.code === ln.code && last.po === ln.po) last.qty += fit;
-      else cur.push({ code: ln.code, name: ln.name, po: ln.po, qty: fit });
-      cc += fit;
-      cv += fit * pv;
-      cw += fit * pw;
-      rem -= fit;
+      const fitUnits = fitPacks * packQty;
+      addToCur(ln.code, ln.name, ln.po, fitUnits);
+      cc += fitUnits;
+      cv += fitPacks * pv;
+      cw += fitPacks * pw;
+      remPacks -= fitPacks;
+    }
+
+    if (looseUnits > 0) {
+      if (!t) {
+        openB();
+        curPo = ln.po;
+      }
+      addToCur(ln.code, ln.name, ln.po, looseUnits);
     }
   }
   closeB();
@@ -167,8 +188,10 @@ function packDest(
       lc = 0;
     for (const it of lb.items) {
       const p = productLookupCache.get(it.code);
-      lv += (p ? p.lengthMm * p.widthMm * p.heightMm : 0) * it.qty;
-      lw += (p ? p.weightG : 0) * it.qty;
+      const packQty = Math.max(1, p?.packQty || 1);
+      const packs = Math.floor(it.qty / packQty); // 포장 단위 나머지는 부피·무게에 포함하지 않음
+      lv += (p ? p.lengthMm * p.widthMm * p.heightMm : 0) * packs;
+      lw += (p ? p.weightG : 0) * packs;
       lc += it.qty;
     }
     const curB = enabled.find((b) => b.id === lb.boxSpecId)!;

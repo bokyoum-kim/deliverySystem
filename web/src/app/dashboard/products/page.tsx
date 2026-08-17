@@ -26,6 +26,7 @@ export default async function ProductsPage({
     code: p.code,
     barcode: p.barcode,
     name: p.name,
+    packQty: p.packQty,
     weightG: p.weightG,
     lengthMm: p.lengthMm,
     widthMm: p.widthMm,
@@ -63,6 +64,7 @@ export default async function ProductsPage({
           <input className="txt" name="code" placeholder="상품번호" style={{ width: 110 }} required />
           <input className="txt mono" name="barcode" placeholder="바코드" style={{ width: 130 }} />
           <input className="txt" name="name" placeholder="상품명" style={{ width: 200 }} />
+          <input className="txt mono" name="packQty" placeholder="포장수량" style={{ width: 74 }} />
           <input className="txt mono" name="weightG" placeholder="무게g" style={{ width: 70 }} />
           <input className="txt mono" name="lengthMm" placeholder="가로" style={{ width: 60 }} />
           <input className="txt mono" name="widthMm" placeholder="세로" style={{ width: 60 }} />
@@ -72,8 +74,9 @@ export default async function ProductsPage({
           <button className="btn sm" type="submit">추가</button>
         </form>
         <p className="hint" style={{ padding: "0 18px 10px", margin: 0 }}>
-          대량 등록·수정: 엑셀에 상품번호(필수)·바코드·상품명·무게·가로·세로·높이·단가·재고·단종 컬럼을 넣어
-          업로드하면, 있는 상품번호는 값을 갱신하고 없는 상품번호는 새로 추가합니다.
+          대량 등록·수정: 엑셀에 상품번호(필수)·바코드·상품명·포장수량·무게·가로·세로·높이·단가·재고·단종 컬럼을
+          넣어 업로드하면, 있는 상품번호는 값을 갱신하고 없는 상품번호는 새로 추가합니다. 무게·가로·세로·높이는
+          포장수량 단위(포장 1개) 기준값입니다.
         </p>
 
         <div style={{ overflowX: "auto" }}>

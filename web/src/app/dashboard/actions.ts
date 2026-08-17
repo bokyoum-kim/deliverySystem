@@ -114,6 +114,7 @@ export async function loadMasterExcel(
       code: findCol(h, ["상품번호"]),
       bc: findCol(h, ["바코드"]),
       name: findCol(h, ["상품명", "상품이름"]),
+      pack: findCol(h, ["포장수량"]),
       w: findCol(h, ["무게"]),
       L: findCol(h, ["가로"]),
       W: findCol(h, ["세로"]),
@@ -127,6 +128,7 @@ export async function loadMasterExcel(
       const data = {
         barcode: ic.bc > -1 ? String(row[ic.bc] ?? "").trim() || null : null,
         name: ic.name > -1 ? String(row[ic.name] ?? "").trim() || code : code,
+        packQty: ic.pack > -1 && parseNum(row[ic.pack]) > 0 ? parseNum(row[ic.pack]) : 1,
         weightG: ic.w > -1 ? parseNum(row[ic.w]) : 0,
         lengthMm: ic.L > -1 ? parseNum(row[ic.L]) : 0,
         widthMm: ic.W > -1 ? parseNum(row[ic.W]) : 0,
