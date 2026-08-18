@@ -89,9 +89,9 @@ function packDest(
   let t: BoxSpecLite | null = null;
   let over = false;
   let cur: PackedItem[] = [];
-  let cc = 0,
-    cv = 0,
-    cw = 0;
+  let cv = 0,
+    cw = 0,
+    cp = 0; // cp: 박스에 담긴 "포장(팩)" 수 — 박스당 최대 수량은 개별 낱개가 아니라 팩 단위로 센다
   let curPo: string | null = null;
 
   function pick(): { b: BoxSpecLite; over: boolean } {
@@ -103,9 +103,9 @@ function packDest(
     t = pk.b;
     over = pk.over;
     cur = [];
-    cc = 0;
     cv = 0;
     cw = 0;
+    cp = 0;
   }
   function closeB() {
     if (!cur.length || !t) {
@@ -150,12 +150,12 @@ function packDest(
       const box = t!;
       const volCap = volCapOf(box, eta);
       const maxw = box.maxWeightG || Infinity;
-      const canC = Math.floor((cap - cc) / packQty);
+      const canC = cap - cp; // 박스당 최대 수량은 포장(팩) 개수 기준
       const canV = pv > 0 ? Math.floor((volCap - cv) / pv) : Infinity;
       const canW = pw > 0 ? Math.floor((maxw - cw) / pw) : Infinity;
       let fitPacks = Math.min(canC, canV, canW, remPacks);
       if (fitPacks <= 0) {
-        if (cc === 0) {
+        if (cp === 0) {
           fitPacks = 1;
         } else {
           closeB();
@@ -164,9 +164,9 @@ function packDest(
       }
       const fitUnits = fitPacks * packQty;
       addToCur(ln.code, ln.name, ln.po, fitUnits);
-      cc += fitUnits;
       cv += fitPacks * pv;
       cw += fitPacks * pw;
+      cp += fitPacks;
       remPacks -= fitPacks;
     }
 
@@ -185,21 +185,21 @@ function packDest(
     const lb = boxes[boxes.length - 1];
     let lv = 0,
       lw = 0,
-      lc = 0;
+      lp = 0; // lp: 포장(팩) 수 합계 — 박스당 최대 수량은 팩 단위로 비교
     for (const it of lb.items) {
       const p = productLookupCache.get(it.code);
       const packQty = Math.max(1, p?.packQty || 1);
-      const packs = Math.floor(it.qty / packQty); // 포장 단위 나머지는 부피·무게에 포함하지 않음
+      const packs = Math.floor(it.qty / packQty); // 포장 단위 나머지는 부피·무게·수량에 포함하지 않음
       lv += (p ? p.lengthMm * p.widthMm * p.heightMm : 0) * packs;
       lw += (p ? p.weightG : 0) * packs;
-      lc += it.qty;
+      lp += packs;
     }
     const curB = enabled.find((b) => b.id === lb.boxSpecId)!;
     let best: BoxSpecLite | null = null;
     for (const b of enabled) {
       if (b.id === lb.boxSpecId || (pool[b.id] || 0) <= 0) continue;
       if (volNom(b) >= volNom(curB)) continue;
-      if (lv <= volCapOf(b, eta) && lw <= (b.maxWeightG || Infinity) && lc <= cap) {
+      if (lv <= volCapOf(b, eta) && lw <= (b.maxWeightG || Infinity) && lp <= cap) {
         if (!best || volNom(b) < volNom(best)) best = b;
       }
     }
