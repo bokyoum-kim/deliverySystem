@@ -42,6 +42,9 @@ export default function ProductBulkUpload() {
       <a className="btn ghost sm" href="/api/templates/products">
         템플릿 다운로드
       </a>
+      <a className="btn ghost sm" href="/api/products/export">
+        엑셀로 내려받기
+      </a>
       {msg && (
         <span className={"msg " + msg.type} style={{ display: "inline-block", marginTop: 0 }}>
           {msg.text}
