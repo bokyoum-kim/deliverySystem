@@ -7,6 +7,12 @@ function short2(n: string) {
 function won0(n: number) {
   return n.toLocaleString();
 }
+// 등록된 무게는 포장(팩) 1개 기준값이라, 실제 중량은 완전한 포장 묶음 수만큼만 곱한다
+// (packing.ts의 박스 채우기 계산과 동일한 기준 — 포장 단위 나머지는 무게에 포함하지 않음).
+function packWeightOf(it: { qty: number; weightG: number; packQty: number }) {
+  const packQty = Math.max(1, it.packQty || 1);
+  return Math.floor(it.qty / packQty) * it.weightG;
+}
 function groupByPo(items: BatchBoxItemView[]) {
   const order: string[] = [];
   const map = new Map<string, BatchBoxItemView[]>();
@@ -25,7 +31,7 @@ function BoxBlock({ dest, box }: { dest: string; box: BatchBoxView }) {
   const id = `${dest}-B${String(box.boxNo).padStart(2, "0")}`;
   const groups = groupByPo(box.items);
   const totQty = box.items.reduce((a, it) => a + it.qty, 0);
-  const totWeight = box.items.reduce((a, it) => a + it.qty * it.weightG, 0);
+  const totWeight = box.items.reduce((a, it) => a + packWeightOf(it), 0);
 
   if (groups.length === 1) {
     const g = groups[0];
@@ -71,7 +77,7 @@ function BoxBlock({ dest, box }: { dest: string; box: BatchBoxView }) {
       {groups.map((g, i) => {
         const itemsText = g.items.map((it) => `${short2(it.name)} ×${it.qty}`).join(", ");
         const sum = g.items.reduce((a, it) => a + it.qty, 0);
-        const wt = g.items.reduce((a, it) => a + it.qty * it.weightG, 0);
+        const wt = g.items.reduce((a, it) => a + packWeightOf(it), 0);
         return (
           <div className="po-row" key={i}>
             <span className="bit">

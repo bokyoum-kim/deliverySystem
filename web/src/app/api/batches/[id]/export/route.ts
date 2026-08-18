@@ -19,7 +19,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const sum: (string | number)[][] = [["배송지", "통합지역", "지역", "주소", "박스수", "패킹수량"]];
   const bsum: (string | number)[][] = [["배송지", "박스번호", "박스종류", "품목수", "총수량", "총중량(g)"]];
   const det: (string | number)[][] = [
-    ["배송지", "박스번호", "박스종류", "발주번호", "상품번호", "바코드", "상품명", "수량", "단위중량(g)", "라인중량(g)"],
+    ["배송지", "박스번호", "박스종류", "발주번호", "상품번호", "바코드", "상품명", "수량", "포장수량", "포장중량(g)", "라인중량(g)"],
   ];
 
   for (const d of detail.dests) {
@@ -30,10 +30,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       let bq = 0,
         bw = 0;
       for (const it of bx.items) {
-        const lw = it.weightG * it.qty;
+        // 등록된 무게는 포장(팩) 1개 기준값이라, 실제 중량은 완전한 포장 묶음 수만큼만 곱한다
+        const packQty = Math.max(1, it.packQty || 1);
+        const lw = it.weightG * Math.floor(it.qty / packQty);
         bq += it.qty;
         bw += lw;
-        det.push([d.dest, id2, bx.boxSpecName, it.po, it.code, it.barcode || "", it.name, it.qty, it.weightG, lw]);
+        det.push([d.dest, id2, bx.boxSpecName, it.po, it.code, it.barcode || "", it.name, it.qty, packQty, it.weightG, lw]);
       }
       bsum.push([d.dest, id2, bx.boxSpecName, bx.items.length, bq, bw]);
     }

@@ -5,7 +5,8 @@ export type BatchBoxItemView = {
   name: string;
   po: string;
   qty: number;
-  weightG: number;
+  weightG: number; // 포장(팩) 1개 기준 무게 — 실제 중량은 packQty로 나눈 팩 수만큼만 곱해야 함
+  packQty: number;
   barcode: string | null;
 };
 export type BatchBoxView = {
@@ -104,6 +105,7 @@ export async function getBatchDetail(batchId: string): Promise<BatchDetail | nul
           po: sheet.poNumber,
           qty: it.qty,
           weightG: it.product.weightG,
+          packQty: it.product.packQty,
           barcode: it.product.barcode,
         })),
       });
