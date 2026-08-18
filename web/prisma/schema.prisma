@@ -113,7 +113,8 @@ model BoxSpec {
   widthMm    Int
   heightMm   Int
   maxWeightG Int
-  stockQty   Int    @default(0)
+  stockQty   Int     @default(0)
+  archived   Boolean @default(false) // 과거 패킹 이력에서 참조 중이라 완전히 지울 수 없는 박스종류를 화면에서만 숨김
   boxes      Box[]
 }
 

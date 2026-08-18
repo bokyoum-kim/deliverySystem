@@ -3,7 +3,7 @@ import { createBoxSpec } from "./actions";
 import BoxesTable from "./BoxesTable";
 
 export default async function BoxesPage() {
-  const boxes = await prisma.boxSpec.findMany({ orderBy: { name: "asc" } });
+  const boxes = await prisma.boxSpec.findMany({ where: { archived: false }, orderBy: { name: "asc" } });
 
   return (
     <section>

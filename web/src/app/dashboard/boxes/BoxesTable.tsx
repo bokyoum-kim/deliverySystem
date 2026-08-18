@@ -74,8 +74,11 @@ function Row({ box }: { box: BoxRow }) {
     if (!confirm(`"${box.name}" 박스를 삭제할까요?`)) return;
     const fd = new FormData();
     fd.set("id", box.id);
-    await deleteBoxSpec(fd);
+    const res = await deleteBoxSpec(fd);
     router.refresh();
+    if (res.archived) {
+      alert(`"${box.name}"은(는) 과거 패킹 이력에 사용되어 완전히 삭제할 수 없어, 목록에서만 숨겼습니다.`);
+    }
   }
 
   function field(key: keyof typeof f, mono = true) {

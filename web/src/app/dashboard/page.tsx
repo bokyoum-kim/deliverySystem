@@ -16,7 +16,7 @@ export default async function DashboardHome({
   const [allProducts, discontinuedCount, boxStockAgg] = await Promise.all([
     prisma.product.findMany({ include: { stock: true }, orderBy: { code: "asc" } }),
     prisma.product.count({ where: { status: "DISCONTINUED" } }),
-    prisma.boxSpec.aggregate({ _sum: { stockQty: true } }),
+    prisma.boxSpec.aggregate({ _sum: { stockQty: true }, where: { archived: false } }),
   ]);
 
   const totQty = allProducts.reduce((a, p) => a + (p.stock?.quantity ?? 0), 0);

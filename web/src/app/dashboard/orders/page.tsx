@@ -13,7 +13,7 @@ export default async function OrdersPage() {
   const active = await getActiveBatch();
 
   if (!active) {
-    const boxSpecs = await prisma.boxSpec.findMany({ orderBy: { name: "asc" } });
+    const boxSpecs = await prisma.boxSpec.findMany({ where: { archived: false }, orderBy: { name: "asc" } });
     const products = await prisma.product.findMany({ select: { code: true, status: true } });
     return (
       <section>

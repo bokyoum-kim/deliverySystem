@@ -205,7 +205,7 @@ export async function loadMasterExcel(
         stockQty: parseNum(row[ic.st]),
       };
       const existing = await prisma.boxSpec.findFirst({ where: { name } });
-      if (existing) await prisma.boxSpec.update({ where: { id: existing.id }, data });
+      if (existing) await prisma.boxSpec.update({ where: { id: existing.id }, data: { ...data, archived: false } });
       else await prisma.boxSpec.create({ data: { name, ...data } });
       boxCount++;
     }

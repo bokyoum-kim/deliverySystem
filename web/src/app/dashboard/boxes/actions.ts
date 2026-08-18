@@ -48,9 +48,24 @@ export async function updateBoxSpec(formData: FormData) {
   revalidatePath("/dashboard/boxes");
 }
 
-export async function deleteBoxSpec(formData: FormData) {
+export async function deleteBoxSpec(formData: FormData): Promise<{ error?: string; archived?: boolean }> {
   const id = str(formData.get("id"));
-  if (!id) return;
+  if (!id) return {};
+
+  const usedCount = await prisma.box.count({ where: { boxSpecId: id } });
+  if (usedCount > 0) {
+    // 과거 패킹 이력(박스 내역)이 이 박스종류를 참조하고 있어 완전히 지우면 그 기록이 깨진다.
+    // 화면·선택 목록에서만 숨기고(보관 처리) DB에서는 남겨 이력을 보존한다.
+    await prisma.boxSpec.update({ where: { id }, data: { archived: true } });
+    revalidatePath("/dashboard/boxes");
+    revalidatePath("/dashboard/orders");
+    revalidatePath("/dashboard");
+    return { archived: true };
+  }
+
   await prisma.boxSpec.delete({ where: { id } });
   revalidatePath("/dashboard/boxes");
+  revalidatePath("/dashboard/orders");
+  revalidatePath("/dashboard");
+  return {};
 }
