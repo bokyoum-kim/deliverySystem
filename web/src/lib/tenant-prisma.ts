@@ -29,8 +29,12 @@ export function getTenantPrisma(schemaName: string): PrismaClient {
 
   const url = new URL(SESSION_POOLER_URL);
   url.searchParams.set("schema", schemaName);
-  url.searchParams.set("connection_limit", "1");
-  url.searchParams.set("pool_timeout", "10");
+  // 화면 대부분이 Promise.all로 같은 클라이언트에 병렬 쿼리를 여러 개 날린다(예: 홈 화면 3개).
+  // connection_limit=1이면 그 병렬 쿼리들이 커넥션 하나를 두고 내부에서 줄을 서야 해서,
+  // 부하가 조금만 겹쳐도 pool_timeout에 걸려 요청이 그대로 에러로 터진다(실제로 배포 직후
+  // 겪은 서버 오류의 원인). 회사가 아직 소수라 안전하게 여유를 둔다.
+  url.searchParams.set("connection_limit", "5");
+  url.searchParams.set("pool_timeout", "15");
 
   const client = new PrismaClient({ datasourceUrl: url.toString() });
   cache.set(schemaName, client);
