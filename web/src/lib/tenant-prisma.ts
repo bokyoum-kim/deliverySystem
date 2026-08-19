@@ -29,12 +29,17 @@ export function getTenantPrisma(schemaName: string): PrismaClient {
 
   const url = new URL(SESSION_POOLER_URL);
   url.searchParams.set("schema", schemaName);
-  // 화면 대부분이 Promise.all로 같은 클라이언트에 병렬 쿼리를 여러 개 날린다(예: 홈 화면 3개).
-  // connection_limit=1이면 그 병렬 쿼리들이 커넥션 하나를 두고 내부에서 줄을 서야 해서,
-  // 부하가 조금만 겹쳐도 pool_timeout에 걸려 요청이 그대로 에러로 터진다(실제로 배포 직후
-  // 겪은 서버 오류의 원인). 회사가 아직 소수라 안전하게 여유를 둔다.
-  url.searchParams.set("connection_limit", "5");
-  url.searchParams.set("pool_timeout", "15");
+  // DB 인스턴스 전체 max_connections가 60으로 작다(Supabase 소형 컴퓨트, 실측 확인).
+  // Vercel 서버리스는 동시 요청이 몰리면 인스턴스를 수평으로 여러 개 띄우고, 각 인스턴스가
+  // (globalThis 캐시로) 스키마별로 별도 PrismaClient를 새로 만들어 connection_limit만큼
+  // 커넥션을 잡고 그 인스턴스가 warm한 동안 계속 들고 있는다 — 그래서 connection_limit을
+  // 올리면 인스턴스 수만큼 곱해져서 60개 한도를 더 쉽게 넘긴다(실측: limit=5일 때 동시 요청
+  // 부하 테스트에서 500 에러 재현됨). 반대로 인스턴스당 커넥션은 최소로 유지하고,
+  // 화면 하나가 Promise.all로 같은 클라이언트에 병렬 쿼리 여러 개를 날리는 경우
+  // (예: 홈 화면 3개, 패킹 생성 3개)는 커넥션을 더 안 늘리고 pool_timeout을 넉넉히 줘서
+  // 그 쿼리들이 실패 대신 줄을 서서 기다리게 한다.
+  url.searchParams.set("connection_limit", "2");
+  url.searchParams.set("pool_timeout", "20");
 
   const client = new PrismaClient({ datasourceUrl: url.toString() });
   cache.set(schemaName, client);
