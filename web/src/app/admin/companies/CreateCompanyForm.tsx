@@ -65,8 +65,8 @@ export default function CreateCompanyForm() {
 
       {result && (
         <div
-          className="msg"
           style={{
+            display: "block",
             margin: "0 18px 14px",
             background: "var(--ship-bg)",
             border: "1px solid var(--ship)",
