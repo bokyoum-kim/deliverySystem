@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
+import { getTenantDb } from "@/lib/tenant-db";
 import { reflectBatchForm } from "../orders/actions";
 
 export default async function HistoryPage() {
-  const batches = await prisma.orderBatch.findMany({
+  const db = await getTenantDb();
+  const batches = await db.orderBatch.findMany({
     where: { status: { in: ["REFLECTED", "CONFIRMED"] } },
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     include: {

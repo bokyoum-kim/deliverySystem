@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { getTenantDb } from "@/lib/tenant-db";
 import { revalidatePath } from "next/cache";
 
 function str(v: FormDataEntryValue | null): string {
@@ -11,7 +11,8 @@ export async function createWarehouse(formData: FormData) {
   const name = str(formData.get("name"));
   if (!name) return;
 
-  await prisma.warehouse.create({
+  const db = await getTenantDb();
+  await db.warehouse.create({
     data: {
       code: name,
       name,
@@ -27,6 +28,7 @@ export async function createWarehouse(formData: FormData) {
 export async function deleteWarehouse(formData: FormData) {
   const id = str(formData.get("id"));
   if (!id) return;
-  await prisma.warehouse.delete({ where: { id } });
+  const db = await getTenantDb();
+  await db.warehouse.delete({ where: { id } });
   revalidatePath("/dashboard/destinations");
 }

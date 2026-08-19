@@ -1,9 +1,10 @@
-import { prisma } from "@/lib/prisma";
+import { getTenantDb } from "@/lib/tenant-db";
 import { createBoxSpec } from "./actions";
 import BoxesTable from "./BoxesTable";
 
 export default async function BoxesPage() {
-  const boxes = await prisma.boxSpec.findMany({ where: { archived: false }, orderBy: { name: "asc" } });
+  const db = await getTenantDb();
+  const boxes = await db.boxSpec.findMany({ where: { archived: false }, orderBy: { name: "asc" } });
 
   return (
     <section>

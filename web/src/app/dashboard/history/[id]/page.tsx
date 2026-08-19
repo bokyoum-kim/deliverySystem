@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getBatchDetail } from "@/lib/batch-view";
+import { getTenantDb } from "@/lib/tenant-db";
 import { PackDestCards, HoldsTable } from "@/components/PackDestCards";
 
 export default async function HistoryDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const detail = await getBatchDetail(id);
+  const db = await getTenantDb();
+  const detail = await getBatchDetail(db, id);
   if (!detail) notFound();
 
   const hasPallets = detail.dests.some((d) => d.boxes.some((b) => b.palletNo != null));

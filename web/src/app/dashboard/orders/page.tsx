@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { getTenantDb } from "@/lib/tenant-db";
 import { getActiveBatch } from "./actions";
 import { getBatchDetail } from "@/lib/batch-view";
 import { getDefaultCap } from "@/lib/settings";
@@ -11,12 +11,13 @@ import { PackDestCards, HoldsTable } from "@/components/PackDestCards";
 export const maxDuration = 60;
 
 export default async function OrdersPage() {
+  const db = await getTenantDb();
   const active = await getActiveBatch();
 
   if (!active) {
-    const boxSpecs = await prisma.boxSpec.findMany({ where: { archived: false }, orderBy: { name: "asc" } });
-    const products = await prisma.product.findMany({ select: { code: true, status: true } });
-    const defaultCap = await getDefaultCap();
+    const boxSpecs = await db.boxSpec.findMany({ where: { archived: false }, orderBy: { name: "asc" } });
+    const products = await db.product.findMany({ select: { code: true, status: true } });
+    const defaultCap = await getDefaultCap(db);
     return (
       <section>
         <h1 style={{ margin: "0 0 4px" }}>Order · 패킹</h1>
@@ -30,12 +31,12 @@ export default async function OrdersPage() {
     );
   }
 
-  const detail = await getBatchDetail(active.id);
+  const detail = await getBatchDetail(db, active.id);
   if (!detail) return null;
 
   const hasPallets = detail.dests.some((d) => d.boxes.some((b) => b.palletNo != null));
 
-  const boxSpecs = await prisma.boxSpec.findMany();
+  const boxSpecs = await db.boxSpec.findMany();
   const stockById = new Map(boxSpecs.map((b) => [b.id, b.stockQty]));
   const usageStr =
     detail.boxUsage.map((u) => `${u.name} ×${u.count}`).join(" · ") || "-";

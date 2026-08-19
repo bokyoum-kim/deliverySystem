@@ -1,6 +1,7 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import type { PrismaClient } from "@prisma/client";
+import { getTenantDb } from "@/lib/tenant-db";
 import { auth } from "@/auth";
 import { runPacking, type OrderLineInput, type ProductLite, type BoxSpecLite } from "@/lib/packing";
 import { revalidatePath } from "next/cache";
@@ -8,20 +9,25 @@ import { revalidatePath } from "next/cache";
 // 실제 발주서는 수천 라인·수백 박스 규모라 행 단위 순차 insert는 트랜잭션 타임아웃을 유발한다.
 // createMany 계열로 한 번에 밀어넣어 라운드트립 수를 데이터 규모와 무관하게 상수로 유지한다.
 
-async function genBatchKey() {
+async function genBatchKey(db: PrismaClient) {
   const d = new Date();
   const dateKey =
     d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0");
-  const count = await prisma.orderBatch.count({ where: { dateKey } });
+  const count = await db.orderBatch.count({ where: { dateKey } });
   const seq = count + 1;
   return { dateKey, key: `${dateKey}-${String(seq).padStart(3, "0")}` };
 }
 
-export async function getActiveBatch() {
-  return prisma.orderBatch.findFirst({
+async function getActiveBatchWith(db: PrismaClient) {
+  return db.orderBatch.findFirst({
     where: { status: { in: ["DRAFT", "CONFIRMED"] } },
     orderBy: { createdAt: "desc" },
   });
+}
+
+export async function getActiveBatch() {
+  const db = await getTenantDb();
+  return getActiveBatchWith(db);
 }
 
 export async function generatePacking(
@@ -30,13 +36,14 @@ export async function generatePacking(
 ): Promise<{ error?: string; batchKey?: string }> {
   if (!lines.length) return { error: "주문 라인이 없습니다." };
 
-  const active = await getActiveBatch();
+  const db = await getTenantDb();
+  const active = await getActiveBatchWith(db);
   if (active) return { error: "이미 생성된 패킹 리스트가 있습니다. 먼저 출고 확정·히스토리 반영(또는 취소)을 해주세요." };
 
   const [dbProducts, dbBoxSpecs, dbWarehouses] = await Promise.all([
-    prisma.product.findMany({ include: { stock: true } }),
-    prisma.boxSpec.findMany(),
-    prisma.warehouse.findMany(),
+    db.product.findMany({ include: { stock: true } }),
+    db.boxSpec.findMany(),
+    db.warehouse.findMany(),
   ]);
 
   const productMap = new Map<string, ProductLite>();
@@ -62,7 +69,7 @@ export async function generatePacking(
   for (const l of lines) if (!nameByCode.has(l.code)) nameByCode.set(l.code, l.name);
   const missingCodes = [...nameByCode.keys()].filter((code) => !productMap.has(code));
   if (missingCodes.length) {
-    const createdProducts = await prisma.product.createManyAndReturn({
+    const createdProducts = await db.product.createManyAndReturn({
       data: missingCodes.map((code) => ({
         code,
         name: nameByCode.get(code) || code,
@@ -73,7 +80,7 @@ export async function generatePacking(
         price: 0,
       })),
     });
-    await prisma.stock.createMany({
+    await db.stock.createMany({
       data: createdProducts.map((p) => ({ productId: p.id, quantity: 0 })),
     });
     for (const p of createdProducts) {
@@ -108,13 +115,13 @@ export async function generatePacking(
   const warehouseByName = new Map(dbWarehouses.map((w) => [w.name, w]));
 
   const result = runPacking(lines, productMap, boxSpecsLite, { eta: opts.eta, cap: opts.cap });
-  const bk = await genBatchKey();
+  const bk = await genBatchKey(db);
 
   // 발주번호별 대표 배송지 (1 PO = 1 FC 규칙)
   const poToDest = new Map<string, string>();
   for (const l of lines) if (!poToDest.has(l.po)) poToDest.set(l.po, l.dest);
 
-  await prisma.$transaction(
+  await db.$transaction(
     async (tx) => {
       const batch = await tx.orderBatch.create({
         data: {
@@ -228,31 +235,33 @@ export async function generatePacking(
 }
 
 export async function cancelDraft(batchId: string) {
-  const batch = await prisma.orderBatch.findUnique({ where: { id: batchId } });
+  const db = await getTenantDb();
+  const batch = await db.orderBatch.findUnique({ where: { id: batchId } });
   if (!batch || batch.status !== "DRAFT") return;
-  await prisma.orderBatch.delete({ where: { id: batchId } });
+  await db.orderBatch.delete({ where: { id: batchId } });
   revalidatePath("/dashboard/orders");
   revalidatePath("/dashboard/receiving");
 }
 
 export async function confirmShipment(batchId: string) {
-  const batch = await prisma.orderBatch.findUnique({ where: { id: batchId } });
+  const db = await getTenantDb();
+  const batch = await db.orderBatch.findUnique({ where: { id: batchId } });
   if (!batch || batch.status !== "DRAFT") return;
 
   // 상품 종류가 많은(수백~수천 라인) 주문에서도 빠르도록 조회는 bulk로 한 번에,
   // 쓰기는 개별 오퍼레이션을 배열로 모아 하나의 배치 트랜잭션으로 보낸다.
-  const boxItems = await prisma.boxItem.findMany({
+  const boxItems = await db.boxItem.findMany({
     where: { box: { sheet: { batchId } } },
     select: { productId: true, qty: true },
   });
   const need: Record<string, number> = {};
   for (const bi of boxItems) need[bi.productId] = (need[bi.productId] || 0) + bi.qty;
 
-  const boxes = await prisma.box.findMany({ where: { sheet: { batchId } }, select: { boxSpecId: true } });
+  const boxes = await db.box.findMany({ where: { sheet: { batchId } }, select: { boxSpecId: true } });
   const boxUsed: Record<string, number> = {};
   for (const b of boxes) boxUsed[b.boxSpecId] = (boxUsed[b.boxSpecId] || 0) + 1;
 
-  const stocks = await prisma.stock.findMany({ where: { productId: { in: Object.keys(need) } } });
+  const stocks = await db.stock.findMany({ where: { productId: { in: Object.keys(need) } } });
   const stockByProduct = new Map(stocks.map((s) => [s.productId, s.quantity]));
   const stockDeltas: Record<string, number> = {};
   const stockOps = [];
@@ -260,11 +269,11 @@ export async function confirmShipment(batchId: string) {
     const take = Math.min(stockByProduct.get(productId) ?? 0, needQty);
     if (take > 0) {
       stockDeltas[productId] = take;
-      stockOps.push(prisma.stock.update({ where: { productId }, data: { quantity: { decrement: take } } }));
+      stockOps.push(db.stock.update({ where: { productId }, data: { quantity: { decrement: take } } }));
     }
   }
 
-  const specs = await prisma.boxSpec.findMany({ where: { id: { in: Object.keys(boxUsed) } } });
+  const specs = await db.boxSpec.findMany({ where: { id: { in: Object.keys(boxUsed) } } });
   const specById = new Map(specs.map((s) => [s.id, s.stockQty]));
   const boxDeltas: Record<string, number> = {};
   const boxOps = [];
@@ -272,13 +281,13 @@ export async function confirmShipment(batchId: string) {
     const cur = specById.get(boxSpecId) ?? 0;
     const take = Math.min(cur, usedQty);
     boxDeltas[boxSpecId] = take;
-    boxOps.push(prisma.boxSpec.update({ where: { id: boxSpecId }, data: { stockQty: Math.max(0, cur - usedQty) } }));
+    boxOps.push(db.boxSpec.update({ where: { id: boxSpecId }, data: { stockQty: Math.max(0, cur - usedQty) } }));
   }
 
-  await prisma.$transaction([
+  await db.$transaction([
     ...stockOps,
     ...boxOps,
-    prisma.orderBatch.update({
+    db.orderBatch.update({
       where: { id: batchId },
       data: { status: "CONFIRMED", confirmedAt: new Date(), stockDeltas, boxDeltas },
     }),
@@ -289,20 +298,21 @@ export async function confirmShipment(batchId: string) {
 }
 
 export async function undoShipment(batchId: string) {
-  const batch = await prisma.orderBatch.findUnique({ where: { id: batchId } });
+  const db = await getTenantDb();
+  const batch = await db.orderBatch.findUnique({ where: { id: batchId } });
   if (!batch || batch.status !== "CONFIRMED") return;
 
   const stockDeltas = (batch.stockDeltas as Record<string, number> | null) ?? {};
   const boxDeltas = (batch.boxDeltas as Record<string, number> | null) ?? {};
 
-  await prisma.$transaction([
+  await db.$transaction([
     ...Object.entries(stockDeltas).map(([productId, qty]) =>
-      prisma.stock.update({ where: { productId }, data: { quantity: { increment: qty } } })
+      db.stock.update({ where: { productId }, data: { quantity: { increment: qty } } })
     ),
     ...Object.entries(boxDeltas).map(([boxSpecId, qty]) =>
-      prisma.boxSpec.update({ where: { id: boxSpecId }, data: { stockQty: { increment: qty } } })
+      db.boxSpec.update({ where: { id: boxSpecId }, data: { stockQty: { increment: qty } } })
     ),
-    prisma.orderBatch.update({
+    db.orderBatch.update({
       where: { id: batchId },
       data: { status: "DRAFT", confirmedAt: null },
     }),
@@ -313,9 +323,10 @@ export async function undoShipment(batchId: string) {
 }
 
 export async function reflectBatch(batchId: string) {
-  const batch = await prisma.orderBatch.findUnique({ where: { id: batchId } });
+  const db = await getTenantDb();
+  const batch = await db.orderBatch.findUnique({ where: { id: batchId } });
   if (!batch || batch.status !== "CONFIRMED") return;
-  await prisma.orderBatch.update({
+  await db.orderBatch.update({
     where: { id: batchId },
     data: { status: "REFLECTED", reflectedAt: new Date() },
   });
@@ -334,7 +345,8 @@ export async function reflectBatchForm(formData: FormData) {
 // "박스당 최대 수량" 기본값을 저장 — 다음 업로드부터는 이 값이 입력칸의 초기값이 된다.
 export async function updateDefaultCap(cap: number): Promise<{ error?: string }> {
   if (!Number.isFinite(cap) || cap < 1) return { error: "1 이상의 숫자를 입력하세요." };
-  await prisma.appSettings.upsert({
+  const db = await getTenantDb();
+  await db.appSettings.upsert({
     where: { id: "singleton" },
     create: { id: "singleton", defaultCap: Math.floor(cap) },
     update: { defaultCap: Math.floor(cap) },

@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import type { PrismaClient } from "@prisma/client";
 
 export type BatchBoxItemView = {
   code: string;
@@ -44,8 +44,8 @@ export type BatchDetail = {
   boxUsage: BatchBoxUsageView[];
 };
 
-export async function getBatchDetail(batchId: string): Promise<BatchDetail | null> {
-  const batch = await prisma.orderBatch.findUnique({
+export async function getBatchDetail(db: PrismaClient, batchId: string): Promise<BatchDetail | null> {
+  const batch = await db.orderBatch.findUnique({
     where: { id: batchId },
     include: {
       orderSheets: {

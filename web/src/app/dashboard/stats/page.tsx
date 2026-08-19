@@ -1,4 +1,5 @@
 import { getOrderStats } from "@/lib/stats";
+import { getTenantDb } from "@/lib/tenant-db";
 import { RankBars, TrendChart } from "./charts";
 
 function won(n: number) {
@@ -9,7 +10,8 @@ function monthLabel(m: string) {
 }
 
 export default async function StatsPage() {
-  const stats = await getOrderStats();
+  const db = await getTenantDb();
+  const stats = await getOrderStats(db);
 
   const trendData = [...stats.monthly].reverse().map((m) => ({
     label: monthLabel(m.month),

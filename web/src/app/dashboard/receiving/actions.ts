@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { getTenantDb } from "@/lib/tenant-db";
 import { revalidatePath } from "next/cache";
 
 function str(v: FormDataEntryValue | null): string {
@@ -16,12 +16,13 @@ export async function applyReceiving(formData: FormData) {
   if (!id) return;
   const qty = Math.max(0, num(formData.get("qty")));
 
-  const po = await prisma.purchaseOrder.findUnique({ where: { id } });
+  const db = await getTenantDb();
+  const po = await db.purchaseOrder.findUnique({ where: { id } });
   if (!po || po.status !== "PENDING") return;
 
-  await prisma.$transaction([
-    prisma.stock.update({ where: { productId: po.productId }, data: { quantity: { increment: qty } } }),
-    prisma.purchaseOrder.update({ where: { id }, data: { receivedQty: qty, status: "RECEIVED" } }),
+  await db.$transaction([
+    db.stock.update({ where: { productId: po.productId }, data: { quantity: { increment: qty } } }),
+    db.purchaseOrder.update({ where: { id }, data: { receivedQty: qty, status: "RECEIVED" } }),
   ]);
 
   revalidatePath("/dashboard/receiving");
@@ -32,12 +33,13 @@ export async function undoReceiving(formData: FormData) {
   const id = str(formData.get("id"));
   if (!id) return;
 
-  const po = await prisma.purchaseOrder.findUnique({ where: { id } });
+  const db = await getTenantDb();
+  const po = await db.purchaseOrder.findUnique({ where: { id } });
   if (!po || po.status !== "RECEIVED") return;
 
-  await prisma.$transaction([
-    prisma.stock.update({ where: { productId: po.productId }, data: { quantity: { decrement: po.receivedQty } } }),
-    prisma.purchaseOrder.update({ where: { id }, data: { receivedQty: 0, status: "PENDING" } }),
+  await db.$transaction([
+    db.stock.update({ where: { productId: po.productId }, data: { quantity: { decrement: po.receivedQty } } }),
+    db.purchaseOrder.update({ where: { id }, data: { receivedQty: 0, status: "PENDING" } }),
   ]);
 
   revalidatePath("/dashboard/receiving");
@@ -47,7 +49,8 @@ export async function undoReceiving(formData: FormData) {
 export async function reflectPurchaseBatch(formData: FormData) {
   const batchId = str(formData.get("batchId"));
   if (!batchId) return;
-  await prisma.purchaseOrder.updateMany({
+  const db = await getTenantDb();
+  await db.purchaseOrder.updateMany({
     where: { batchId },
     data: { status: "REFLECTED" },
   });

@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { getTenantDb } from "@/lib/tenant-db";
 import { createProduct } from "./actions";
 import SearchBox from "../SearchBox";
 import ProductBulkUpload from "./ProductBulkUpload";
@@ -11,7 +11,8 @@ export default async function ProductsPage({
 }) {
   const { q } = await searchParams;
 
-  const products = await prisma.product.findMany({
+  const db = await getTenantDb();
+  const products = await db.product.findMany({
     include: { stock: true },
     orderBy: { code: "asc" },
   });

@@ -1,8 +1,9 @@
-import { prisma } from "@/lib/prisma";
+import { getTenantDb } from "@/lib/tenant-db";
 import { createWarehouse, deleteWarehouse } from "./actions";
 
 export default async function DestinationsPage() {
-  const dests = await prisma.warehouse.findMany({ orderBy: { name: "asc" } });
+  const db = await getTenantDb();
+  const dests = await db.warehouse.findMany({ orderBy: { name: "asc" } });
 
   return (
     <section>

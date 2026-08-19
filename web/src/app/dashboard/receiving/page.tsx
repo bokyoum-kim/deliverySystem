@@ -1,8 +1,9 @@
-import { prisma } from "@/lib/prisma";
+import { getTenantDb } from "@/lib/tenant-db";
 import { applyReceiving, undoReceiving, reflectPurchaseBatch } from "./actions";
 
 export default async function ReceivingPage() {
-  const list = await prisma.purchaseOrder.findMany({
+  const db = await getTenantDb();
+  const list = await db.purchaseOrder.findMany({
     include: { product: true, batch: { select: { id: true, key: true } } },
     orderBy: { createdAt: "asc" },
   });

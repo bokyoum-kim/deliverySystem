@@ -1,7 +1,7 @@
 "use server";
 
 import * as XLSX from "xlsx";
-import { prisma } from "@/lib/prisma";
+import { getTenantDb } from "@/lib/tenant-db";
 import { revalidatePath } from "next/cache";
 import { normHeader, findCol, parseNum, boolish } from "@/lib/xlsx-common";
 
@@ -17,7 +17,8 @@ export async function createProduct(formData: FormData) {
   const code = str(formData.get("code"));
   if (!code) return;
 
-  await prisma.product.create({
+  const db = await getTenantDb();
+  await db.product.create({
     data: {
       code,
       barcode: str(formData.get("barcode")) || null,
@@ -39,7 +40,8 @@ export async function updateProduct(formData: FormData) {
   const id = str(formData.get("id"));
   if (!id) return;
 
-  await prisma.product.update({
+  const db = await getTenantDb();
+  await db.product.update({
     where: { id },
     data: {
       barcode: str(formData.get("barcode")) || null,
@@ -94,6 +96,7 @@ export async function bulkUpsertProducts(
   };
   if (ic.code < 0) return { error: "상품번호 컬럼을 찾지 못했습니다." };
 
+  const db = await getTenantDb();
   let added = 0;
   let updated = 0;
   for (let r = 1; r < aoa.length; r++) {
@@ -119,9 +122,9 @@ export async function bulkUpsertProducts(
     if (ic.hold > -1) patch.status = boolish(row[ic.hold]) ? "DISCONTINUED" : "ACTIVE";
     const stockQty = ic.stock > -1 ? parseNum(row[ic.stock]) : null;
 
-    const existing = await prisma.product.findUnique({ where: { code } });
+    const existing = await db.product.findUnique({ where: { code } });
     if (existing) {
-      await prisma.product.update({
+      await db.product.update({
         where: { code },
         data: {
           ...patch,
@@ -132,7 +135,7 @@ export async function bulkUpsertProducts(
       });
       updated++;
     } else {
-      await prisma.product.create({
+      await db.product.create({
         data: {
           code,
           barcode: (patch.barcode as string | null) ?? null,

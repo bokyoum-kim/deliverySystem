@@ -2,18 +2,19 @@ import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { auth } from "@/auth";
 import { getBatchDetail } from "@/lib/batch-view";
-import { prisma } from "@/lib/prisma";
+import { getTenantDb } from "@/lib/tenant-db";
 import { contentDisposition } from "@/lib/download";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) return new NextResponse("Unauthorized", { status: 401 });
 
+  const db = await getTenantDb();
   const { id } = await params;
-  const detail = await getBatchDetail(id);
+  const detail = await getBatchDetail(db, id);
   if (!detail) return new NextResponse("Not found", { status: 404 });
 
-  const warehouses = await prisma.warehouse.findMany();
+  const warehouses = await db.warehouse.findMany();
   const whByName = new Map(warehouses.map((w) => [w.name, w]));
 
   const sum: (string | number)[][] = [["배송지", "통합지역", "지역", "주소", "박스수", "패킹수량"]];

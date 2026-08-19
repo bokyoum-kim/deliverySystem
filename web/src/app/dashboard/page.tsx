@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { getTenantDb } from "@/lib/tenant-db";
 import SearchBox from "./SearchBox";
 import BulkUploadButtons from "./BulkUploadButtons";
 
@@ -13,10 +13,11 @@ export default async function DashboardHome({
 }) {
   const { q } = await searchParams;
 
+  const db = await getTenantDb();
   const [allProducts, discontinuedCount, boxStockAgg] = await Promise.all([
-    prisma.product.findMany({ include: { stock: true }, orderBy: { code: "asc" } }),
-    prisma.product.count({ where: { status: "DISCONTINUED" } }),
-    prisma.boxSpec.aggregate({ _sum: { stockQty: true }, where: { archived: false } }),
+    db.product.findMany({ include: { stock: true }, orderBy: { code: "asc" } }),
+    db.product.count({ where: { status: "DISCONTINUED" } }),
+    db.boxSpec.aggregate({ _sum: { stockQty: true }, where: { archived: false } }),
   ]);
 
   const totQty = allProducts.reduce((a, p) => a + (p.stock?.quantity ?? 0), 0);

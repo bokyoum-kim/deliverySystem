@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import type { PrismaClient } from "@prisma/client";
 
 export type MonthlyStat = { month: string; qty: number; amount: number; lines: number };
 export type ProductStat = { code: string; name: string; qty: number; amount: number; lines: number };
@@ -33,10 +33,10 @@ const EMPTY: OrderStats = {
 };
 
 // 전체 누적(DRAFT 포함) 발주 통계 — 오더패킹 히스토리 상태와 무관하게 지금까지 들어온 모든 발주 라인을 집계한다.
-export async function getOrderStats(): Promise<OrderStats> {
+export async function getOrderStats(db: PrismaClient): Promise<OrderStats> {
   const [totalBatches, lines] = await Promise.all([
-    prisma.orderBatch.count(),
-    prisma.orderLine.findMany({
+    db.orderBatch.count(),
+    db.orderLine.findMany({
       select: {
         orderedQty: true,
         totalAmount: true,

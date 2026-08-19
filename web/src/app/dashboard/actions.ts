@@ -1,7 +1,7 @@
 "use server";
 
 import * as XLSX from "xlsx";
-import { prisma } from "@/lib/prisma";
+import { getTenantDb } from "@/lib/tenant-db";
 import { revalidatePath } from "next/cache";
 import { normHeader, findCol, parseNum } from "@/lib/xlsx-common";
 
@@ -32,6 +32,7 @@ export async function bulkUpdateStock(formData: FormData): Promise<{ error?: str
   };
   if (ic.code < 0 || ic.qty < 0) return { error: "필수 컬럼(상품번호·재고수량)을 찾지 못했습니다." };
 
+  const db = await getTenantDb();
   let added = 0;
   let updated = 0;
   for (let r = 1; r < aoa.length; r++) {
@@ -41,16 +42,16 @@ export async function bulkUpdateStock(formData: FormData): Promise<{ error?: str
     const qty = Math.max(0, parseNum(row[ic.qty]));
     const name = ic.name > -1 ? String(row[ic.name] ?? "").trim() : "";
 
-    const existing = await prisma.product.findUnique({ where: { code } });
+    const existing = await db.product.findUnique({ where: { code } });
     if (existing) {
-      await prisma.stock.upsert({
+      await db.stock.upsert({
         where: { productId: existing.id },
         create: { productId: existing.id, quantity: qty },
         update: { quantity: qty },
       });
       updated++;
     } else {
-      await prisma.product.create({
+      await db.product.create({
         data: {
           code,
           name: name || code,
@@ -87,6 +88,7 @@ export async function loadMasterExcel(
 
   if (!pi || !pi.length) return { error: "ProductInfo 시트를 찾지 못했습니다." };
 
+  const db = await getTenantDb();
   const stockByCode = new Map<string, number>();
   if (ins && ins.length) {
     const h = (ins[0] as unknown[]).map(normHeader);
@@ -137,14 +139,14 @@ export async function loadMasterExcel(
         status: holdSet.has(code) ? "DISCONTINUED" : "ACTIVE",
       };
       const stockQty = stockByCode.get(code) ?? 0;
-      const existing = await prisma.product.findUnique({ where: { code } });
+      const existing = await db.product.findUnique({ where: { code } });
       if (existing) {
-        await prisma.product.update({
+        await db.product.update({
           where: { code },
           data: { ...data, stock: { upsert: { create: { quantity: stockQty }, update: { quantity: stockQty } } } },
         });
       } else {
-        await prisma.product.create({ data: { code, ...data, stock: { create: { quantity: stockQty } } } });
+        await db.product.create({ data: { code, ...data, stock: { create: { quantity: stockQty } } } });
       }
       productCount++;
     }
@@ -163,7 +165,7 @@ export async function loadMasterExcel(
       const row = de[r];
       const name = String(row[ic.name] ?? "").trim();
       if (!name) continue;
-      await prisma.warehouse.upsert({
+      await db.warehouse.upsert({
         where: { code: name },
         create: {
           code: name,
@@ -204,9 +206,9 @@ export async function loadMasterExcel(
         maxWeightG: parseNum(row[ic.mw]),
         stockQty: parseNum(row[ic.st]),
       };
-      const existing = await prisma.boxSpec.findFirst({ where: { name } });
-      if (existing) await prisma.boxSpec.update({ where: { id: existing.id }, data: { ...data, archived: false } });
-      else await prisma.boxSpec.create({ data: { name, ...data } });
+      const existing = await db.boxSpec.findFirst({ where: { name } });
+      if (existing) await db.boxSpec.update({ where: { id: existing.id }, data: { ...data, archived: false } });
+      else await db.boxSpec.create({ data: { name, ...data } });
       boxCount++;
     }
   }

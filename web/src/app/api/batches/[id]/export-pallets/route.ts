@@ -2,14 +2,16 @@ import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { auth } from "@/auth";
 import { getBatchDetail } from "@/lib/batch-view";
+import { getTenantDb } from "@/lib/tenant-db";
 import { contentDisposition } from "@/lib/download";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) return new NextResponse("Unauthorized", { status: 401 });
 
+  const db = await getTenantDb();
   const { id } = await params;
-  const detail = await getBatchDetail(id);
+  const detail = await getBatchDetail(db, id);
   if (!detail) return new NextResponse("Not found", { status: 404 });
 
   const rows: (string | number)[][] = [["배송지", "팔레트번호", "박스번호", "박스종류", "상품번호", "상품명", "수량"]];

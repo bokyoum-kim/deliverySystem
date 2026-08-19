@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
+import { getTenantDb } from "@/lib/tenant-db";
 import { contentDisposition } from "@/lib/download";
 
 export async function GET() {
   const session = await auth();
   if (!session?.user) return new NextResponse("Unauthorized", { status: 401 });
 
-  const list = await prisma.purchaseOrder.findMany({
+  const db = await getTenantDb();
+  const list = await db.purchaseOrder.findMany({
     include: { product: true, batch: { select: { key: true } } },
     orderBy: [{ batch: { key: "desc" } }, { createdAt: "asc" }],
   });
