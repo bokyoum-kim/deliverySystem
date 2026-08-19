@@ -1,6 +1,11 @@
 // 물류관리 시스템 스키마
 // CLAUDE.md의 ERD(12엔티티)를 기준으로 함. Supabase(PostgreSQL) 사용.
-// DATABASE_URL = 트랜잭션 풀러(런타임용), DIRECT_URL = 세션 풀러(마이그레이션용).
+// DATABASE_URL = 트랜잭션 풀러(런타임용, 컨트롤플레인 전용), DIRECT_URL = 세션 풀러(마이그레이션·테넌트 클라이언트용).
+//
+// 멀티테넌트: Company/User/Account/Session/VerificationToken(컨트롤플레인)만 public 스키마에 항상 존재.
+// 나머지 모델(Product 이하 전부)은 "회사별 스키마" 템플릿 — 회사가 생성될 때마다 이 정의가
+// tenant_xxxxxxxx 스키마로 통째로 복제된다(src/lib/tenant-provision.ts). 회사 #1은 예외적으로
+// 이 템플릿을 public 스키마 자신에 적용한 것(기존 실데이터를 그대로 회사 #1로 승격).
 
 generator client {
   provider = "prisma-client-js"
@@ -12,20 +17,32 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// ---------- 인증 (NextAuth/Auth.js) ----------
+// ---------- 컨트롤플레인 (회사·사용자·인증) — 항상 public 스키마, 회사별 스키마 분리 대상이 아님 ----------
+
+model Company {
+  // 테넌트(고객사). schemaName은 이 회사의 업무 데이터가 들어있는 Postgres 스키마 이름.
+  id         String   @id @default(cuid())
+  name       String
+  schemaName String   @unique // "public"(회사 #1) 또는 "tenant_xxxxxxxx"
+  createdAt  DateTime @default(now())
+  users      User[]
+}
 
 model User {
   id            String    @id @default(cuid())
   name          String?
-  email         String    @unique
+  email         String
   passwordHash  String?
   emailVerified DateTime?
   image         String?
-  role          String    @default("MEMBER") // ADMIN | MEMBER
+  role          String    @default("MEMBER") // SUPERADMIN | ADMIN | MEMBER
+  companyId     String? // null = SUPERADMIN(플랫폼 운영자, 회사 소속 아님)
+  company       Company?  @relation(fields: [companyId], references: [id])
   accounts      Account[]
   sessions      Session[]
-  orderBatches  OrderBatch[]
   createdAt     DateTime  @default(now())
+
+  @@unique([companyId, email])
 }
 
 model Account {
@@ -142,8 +159,7 @@ model OrderBatch {
   key            String   @unique // 예: 20260809-001
   dateKey        String
   status         String   @default("DRAFT") // DRAFT | CONFIRMED | REFLECTED
-  createdById    String?
-  createdBy      User?    @relation(fields: [createdById], references: [id])
+  createdById    String? // User.id 참조지만 FK는 아님 — 회사별 스키마에서는 public.User를 조인할 수 없음(§0 참고)
   createdAt      DateTime @default(now())
   confirmedAt    DateTime?
   reflectedAt    DateTime?

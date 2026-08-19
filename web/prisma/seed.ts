@@ -49,11 +49,17 @@ async function main() {
   const adminEmail = process.env.SEED_ADMIN_EMAIL || "admin@example.com";
   const adminPassword = process.env.SEED_ADMIN_PASSWORD || "changeme123";
 
+  const company = await prisma.company.upsert({
+    where: { schemaName: "public" },
+    update: {},
+    create: { name: "샘플 회사", schemaName: "public" },
+  });
+
   const passwordHash = await bcrypt.hash(adminPassword, 10);
   await prisma.user.upsert({
-    where: { email: adminEmail },
+    where: { companyId_email: { companyId: company.id, email: adminEmail } },
     update: {},
-    create: { email: adminEmail, name: "관리자", passwordHash, role: "ADMIN" },
+    create: { email: adminEmail, name: "관리자", passwordHash, role: "ADMIN", companyId: company.id },
   });
   console.log(`admin user ready: ${adminEmail} / ${adminPassword}`);
 

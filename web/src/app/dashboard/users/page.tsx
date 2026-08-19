@@ -6,9 +6,12 @@ import CreateUserForm from "./CreateUserForm";
 
 export default async function UsersPage() {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN") redirect("/dashboard");
+  if (session?.user?.role !== "ADMIN" || !session.user.companyId) redirect("/dashboard");
 
-  const users = await prisma.user.findMany({ orderBy: { createdAt: "asc" } });
+  const users = await prisma.user.findMany({
+    where: { companyId: session.user.companyId },
+    orderBy: { createdAt: "asc" },
+  });
 
   return (
     <section>
