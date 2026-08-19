@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import CreateCompanyForm from "./CreateCompanyForm";
 
+// 회사 생성은 마이그레이션 SQL 수십 문장을 순차 실행하는 트랜잭션이라 기본 서버리스
+// 타임아웃(10초)보다 오래 걸릴 수 있음
+export const maxDuration = 60;
+
 export default async function CompaniesPage() {
   const companies = await prisma.company.findMany({
     orderBy: { createdAt: "asc" },
