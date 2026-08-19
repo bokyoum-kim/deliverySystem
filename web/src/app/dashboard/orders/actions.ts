@@ -330,3 +330,15 @@ export async function reflectBatchForm(formData: FormData) {
   if (!batchId) return;
   await reflectBatch(batchId);
 }
+
+// "박스당 최대 수량" 기본값을 저장 — 다음 업로드부터는 이 값이 입력칸의 초기값이 된다.
+export async function updateDefaultCap(cap: number): Promise<{ error?: string }> {
+  if (!Number.isFinite(cap) || cap < 1) return { error: "1 이상의 숫자를 입력하세요." };
+  await prisma.appSettings.upsert({
+    where: { id: "singleton" },
+    create: { id: "singleton", defaultCap: Math.floor(cap) },
+    update: { defaultCap: Math.floor(cap) },
+  });
+  revalidatePath("/dashboard/orders");
+  return {};
+}

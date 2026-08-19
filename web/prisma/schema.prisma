@@ -240,3 +240,9 @@ model PurchaseOrder {
   status      String     @default("PENDING") // PENDING | RECEIVED | REFLECTED
   createdAt   DateTime   @default(now())
 }
+
+model AppSettings {
+  // 앱 전역 설정. 항상 id="singleton" 한 행만 존재(싱글턴).
+  id           String @id @default("singleton")
+  defaultCap   Int    @default(100) // Order·패킹 업로드 시 "박스당 최대 수량" 입력칸의 기본값
+}

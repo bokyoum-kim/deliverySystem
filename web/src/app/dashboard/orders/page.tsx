@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getActiveBatch } from "./actions";
 import { getBatchDetail } from "@/lib/batch-view";
+import { getDefaultCap } from "@/lib/settings";
 import { PALLET_SIZE } from "@/lib/packing";
 import UploadPanel from "./UploadPanel";
 import BatchActions from "./BatchActions";
@@ -15,6 +16,7 @@ export default async function OrdersPage() {
   if (!active) {
     const boxSpecs = await prisma.boxSpec.findMany({ where: { archived: false }, orderBy: { name: "asc" } });
     const products = await prisma.product.findMany({ select: { code: true, status: true } });
+    const defaultCap = await getDefaultCap();
     return (
       <section>
         <h1 style={{ margin: "0 0 4px" }}>Order · 패킹</h1>
@@ -22,6 +24,7 @@ export default async function OrdersPage() {
         <UploadPanel
           boxSpecs={boxSpecs}
           products={products.map((p) => ({ code: p.code, discontinued: p.status === "DISCONTINUED" }))}
+          defaultCap={defaultCap}
         />
       </section>
     );

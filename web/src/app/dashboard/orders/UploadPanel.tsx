@@ -4,18 +4,27 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { parseOrderFile, SAMPLE_ORDER } from "@/lib/xlsx-parse";
 import type { OrderLineInput } from "@/lib/packing";
-import { generatePacking } from "./actions";
+import { generatePacking, updateDefaultCap } from "./actions";
 
 type BoxSpecOpt = { id: string; name: string; lengthMm: number; widthMm: number; heightMm: number; stockQty: number };
 type ProductOpt = { code: string; discontinued: boolean };
 
-export default function UploadPanel({ boxSpecs, products }: { boxSpecs: BoxSpecOpt[]; products: ProductOpt[] }) {
+export default function UploadPanel({
+  boxSpecs,
+  products,
+  defaultCap,
+}: {
+  boxSpecs: BoxSpecOpt[];
+  products: ProductOpt[];
+  defaultCap: number;
+}) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [lines, setLines] = useState<OrderLineInput[] | null>(null);
   const [msg, setMsg] = useState<{ type: "err" | "load"; text: string } | null>(null);
   const [eta, setEta] = useState(80);
-  const [cap, setCap] = useState(100);
+  const [cap, setCap] = useState(defaultCap);
+  const [savingCap, setSavingCap] = useState(false);
   const [enabledIds, setEnabledIds] = useState<Set<string>>(new Set(boxSpecs.map((b) => b.id)));
   const [generating, setGenerating] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -35,6 +44,18 @@ export default function UploadPanel({ boxSpecs, products }: { boxSpecs: BoxSpecO
   function loadSample() {
     setLines(SAMPLE_ORDER);
     setMsg(null);
+  }
+
+  async function saveDefaultCap() {
+    setSavingCap(true);
+    const res = await updateDefaultCap(cap);
+    setSavingCap(false);
+    if (res.error) {
+      alert(res.error);
+      return;
+    }
+    router.refresh();
+    alert(`박스당 최대 수량 기본값을 ${cap}(으)로 저장했습니다. 다음 업로드부터 이 값이 기본으로 채워집니다.`);
   }
 
   async function onGenerate() {
@@ -164,7 +185,25 @@ export default function UploadPanel({ boxSpecs, products }: { boxSpecs: BoxSpecO
         </div>
         <div>
           <label style={{ fontSize: 12, color: "var(--muted)", display: "block" }}>박스당 최대 수량</label>
-          <input className="txt mono" type="number" min={1} value={cap} onChange={(e) => setCap(Number(e.target.value) || 100)} style={{ width: 90 }} />
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <input
+              className="txt mono"
+              type="number"
+              min={1}
+              value={cap}
+              onChange={(e) => setCap(Number(e.target.value) || defaultCap)}
+              style={{ width: 90 }}
+            />
+            <button
+              className="btn ghost sm"
+              type="button"
+              disabled={savingCap || cap === defaultCap}
+              onClick={saveDefaultCap}
+              title="이 값을 다음 업로드부터 기본값으로 사용"
+            >
+              기본값으로 저장
+            </button>
+          </div>
         </div>
         <button className="btn" type="button" disabled={generating} onClick={onGenerate}>
           {generating ? "생성 중…" : "Packing List 생성"}
