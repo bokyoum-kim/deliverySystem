@@ -2,7 +2,7 @@ import { getTenantDb } from "@/lib/tenant-db";
 import { getActiveBatch } from "./actions";
 import { getBatchDetail } from "@/lib/batch-view";
 import { getDefaultCap } from "@/lib/settings";
-import { PALLET_SIZE } from "@/lib/packing";
+import { PALLET_SIZE, PALLET_TRIGGER } from "@/lib/packing";
 import UploadPanel from "./UploadPanel";
 import BatchActions from "./BatchActions";
 import { PackDestCards, HoldsTable } from "@/components/PackDestCards";
@@ -81,7 +81,7 @@ export default async function OrdersPage() {
       <div style={{ marginBottom: 12, fontSize: 14, color: "var(--muted)" }}>
         박스 사용 내역: <b style={{ color: "var(--ink)" }}>{usageStr}</b> · 패킹 리스트는 재고와 무관하게 전량 작성됩니다.
         한 박스에는 하나의 발주번호 물품만 담기며, 재고 부족분은 출고 확정 시 반영되고 발주·입고 탭에 모입니다.
-        배송지 박스가 {PALLET_SIZE}개를 넘으면 {PALLET_SIZE}박스 단위로 팔레트가 자동 구성됩니다. 파일 하나당 패킹
+        배송지 박스가 {PALLET_TRIGGER}개를 넘으면 최대 {PALLET_SIZE}박스 단위로 팔레트가 자동 구성됩니다. 파일 하나당 패킹
         리스트는 한 번만 생성할 수 있으며, 출고 확정 후 &quot;히스토리 반영&quot;을 누르면 오더패킹 히스토리에
         저장되고 화면이 초기화되어 다음 주문을 받을 수 있습니다.
       </div>

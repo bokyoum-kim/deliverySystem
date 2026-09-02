@@ -1,7 +1,11 @@
 // 패킹 알고리즘 — 물류관리시스템 프로토타입(HTML)의 packDest/generate 로직을 그대로 포팅.
 // 순수 함수: DB나 DOM에 의존하지 않는다.
 
+// 팔레트 최대 적재 박스 수 (한 팔레트에 최대 이만큼 담는다)
 export const PALLET_SIZE = 30;
+// 팔레트를 쓸지 말지의 기준(이보다 박스가 많아야 팔레트 전환) — PALLET_SIZE와 별개 값.
+// 예) 15박스면 10 초과라 팔레트 전환하되 30 이하라 팔레트 1개(15박스)로 묶인다.
+export const PALLET_TRIGGER = 10;
 
 export type ProductLite = {
   code: string;
@@ -369,7 +373,7 @@ export function runPacking(
     const qty = arr.reduce((a, c) => a + c.ship, 0);
 
     let pallets: PackedPallet[] | null = null;
-    if (boxes.length > PALLET_SIZE) {
+    if (boxes.length > PALLET_TRIGGER) {
       // 같은 배송지 박스를 PALLET_SIZE개씩 잘라 팔레트로 묶는다. 마지막 조각이 PALLET_SIZE에
       // 못 미치더라도(나머지) 낱개로 남기지 않고 별도 팔레트로 분리한다.
       const pageCount = Math.ceil(boxes.length / PALLET_SIZE);
