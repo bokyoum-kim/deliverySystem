@@ -1,7 +1,7 @@
 // 패킹 알고리즘 — 물류관리시스템 프로토타입(HTML)의 packDest/generate 로직을 그대로 포팅.
 // 순수 함수: DB나 DOM에 의존하지 않는다.
 
-export const PALLET_SIZE = 10;
+export const PALLET_SIZE = 30;
 
 export type ProductLite = {
   code: string;
@@ -370,9 +370,11 @@ export function runPacking(
 
     let pallets: PackedPallet[] | null = null;
     if (boxes.length > PALLET_SIZE) {
-      const fullCount = Math.floor(boxes.length / PALLET_SIZE);
+      // 같은 배송지 박스를 PALLET_SIZE개씩 잘라 팔레트로 묶는다. 마지막 조각이 PALLET_SIZE에
+      // 못 미치더라도(나머지) 낱개로 남기지 않고 별도 팔레트로 분리한다.
+      const pageCount = Math.ceil(boxes.length / PALLET_SIZE);
       pallets = [];
-      for (let pi = 0; pi < fullCount; pi++) {
+      for (let pi = 0; pi < pageCount; pi++) {
         pallets.push({
           palletNo: pi + 1,
           boxNos: boxes.slice(pi * PALLET_SIZE, (pi + 1) * PALLET_SIZE).map((b) => b.boxNo),
