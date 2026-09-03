@@ -27,10 +27,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const whByName = new Map(warehouses.map((w) => [w.name, w]));
 
   const sum: (string | number)[][] = [["배송지", "통합지역", "지역", "주소", "박스수", "패킹수량"]];
-  const bsum: (string | number)[][] = [["배송지", "박스번호", "박스종류", "품목수", "총수량", "총중량(g)"]];
+  const bsum: (string | number)[][] = [
+    ["배송지", "박스번호", "팔레트번호", "박스종류", "품목수", "총수량", "총중량(g)"],
+  ];
   const detHeader = [
     "배송지",
     "박스번호",
+    "팔레트번호",
     "박스종류",
     "발주번호",
     "상품번호",
@@ -49,6 +52,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     for (const bx of d.boxes) {
       const id2 = `${d.dest}-B${String(bx.boxNo).padStart(2, "0")}`;
       const onPallet = bx.palletNo != null;
+      const palletId = onPallet ? `${d.dest}-PLT${String(bx.palletNo).padStart(2, "0")}` : "";
       let bq = 0,
         bw = 0;
       for (const it of bx.items) {
@@ -58,11 +62,24 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         bq += it.qty;
         bw += lw;
         detRows.push({
-          row: [d.dest, id2, bx.boxSpecName, it.po, it.code, it.barcode || "", it.name, it.qty, packQty, it.weightG, lw],
+          row: [
+            d.dest,
+            id2,
+            palletId,
+            bx.boxSpecName,
+            it.po,
+            it.code,
+            it.barcode || "",
+            it.name,
+            it.qty,
+            packQty,
+            it.weightG,
+            lw,
+          ],
           onPallet,
         });
       }
-      bsum.push([d.dest, id2, bx.boxSpecName, bx.items.length, bq, bw]);
+      bsum.push([d.dest, id2, palletId, bx.boxSpecName, bx.items.length, bq, bw]);
     }
   }
 

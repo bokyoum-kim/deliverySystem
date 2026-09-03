@@ -27,8 +27,13 @@ function groupByPo(items: BatchBoxItemView[]) {
   return order.map((k) => ({ po: k, items: map.get(k)! }));
 }
 
+function palletIdOf(dest: string, palletNo: number | null) {
+  return palletNo == null ? null : `${dest}-PLT${String(palletNo).padStart(2, "0")}`;
+}
+
 function BoxBlock({ dest, box }: { dest: string; box: BatchBoxView }) {
   const id = `${dest}-B${String(box.boxNo).padStart(2, "0")}`;
+  const palletId = palletIdOf(dest, box.palletNo);
   const groups = groupByPo(box.items);
   const totQty = box.items.reduce((a, it) => a + it.qty, 0);
   const totWeight = box.items.reduce((a, it) => a + packWeightOf(it), 0);
@@ -44,6 +49,7 @@ function BoxBlock({ dest, box }: { dest: string; box: BatchBoxView }) {
             <span className="badge b-warn" style={{ fontWeight: 600 }}>
               {box.boxSpecName}
             </span>
+            {palletId && <span className="muted mono"> {palletId}</span>}
           </span>
           <span className="bit">
             {g.po && (
@@ -69,6 +75,7 @@ function BoxBlock({ dest, box }: { dest: string; box: BatchBoxView }) {
           <span className="badge b-warn" style={{ fontWeight: 600 }}>
             {box.boxSpecName}
           </span>
+          {palletId && <span className="muted mono"> {palletId}</span>}
         </span>
         <span className="tot mono">
           박스 합계 {totQty}개 · {won0(totWeight)}g
