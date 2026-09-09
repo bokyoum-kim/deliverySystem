@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getBatchDetail } from "@/lib/batch-view";
 import { getTenantDb } from "@/lib/tenant-db";
 import { PackDestCards, HoldsTable } from "@/components/PackDestCards";
+import ExportPackingListButton from "@/components/ExportPackingListButton";
 
 export default async function HistoryDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -48,9 +49,7 @@ export default async function HistoryDetailPage({ params }: { params: Promise<{ 
       </div>
 
       <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-        <a className="btn ghost sm" href={`/api/batches/${detail.id}/export`}>
-          엑셀 내보내기
-        </a>
+        <ExportPackingListButton batchId={detail.id} />
         {hasPallets && (
           <a className="btn ghost sm" href={`/api/batches/${detail.id}/export-pallets`}>
             팔레트 명세서 엑셀

@@ -14,9 +14,15 @@ function addAoaSheet(wb: ExcelJS.Workbook, name: string, rows: (string | number)
   ws.getRow(1).font = { bold: true };
 }
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) return new NextResponse("Unauthorized", { status: 401 });
+
+  // 입고 예정일 — 발주서에 저장된 값이 아니라, 사용자가 이 엑셀을 내려받기 직전에 입력한 값.
+  // 쿠팡 쉽먼트 업로드 양식(data/쉽먼트 업로드양식파일.xlsx)의 EDD 컬럼이 "20260904"처럼
+  // YYYYMMDD(하이픈 없이)라, <input type="date">가 주는 "2026-09-04" 형식에서 하이픈만 제거한다.
+  const etaDateRaw = new URL(req.url).searchParams.get("etaDate") || "";
+  const etaDate = etaDateRaw.replace(/-/g, "");
 
   const db = await getTenantDb();
   const { id } = await params;
@@ -83,6 +89,35 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     }
   }
 
+  // 쉽먼트 시트 — 발주번호+배송지+상품 단위로 합산(박스 단위 아님). 입고유형은 그 배송지
+  // 박스가 팔레트로 묶였는지(밀크런) 낱개인지(쉽먼트)로 정해지는데, 같은 배송지 박스는
+  // 팔레트 전환 기준을 넘으면 전부 팔레트로 묶이므로(packing.ts) 배송지 단위로 한 번만 봐도 된다.
+  type ShipKey = string;
+  const shipMap = new Map<
+    ShipKey,
+    { po: string; dest: string; code: string; barcode: string; name: string; qty: number; isMilkRun: boolean }
+  >();
+  for (const d of detail.dests) {
+    const isMilkRun = d.boxes.some((b) => b.palletNo != null);
+    for (const bx of d.boxes) {
+      for (const it of bx.items) {
+        const key = `${it.po}::${d.dest}::${it.code}`;
+        const cur = shipMap.get(key);
+        if (cur) cur.qty += it.qty;
+        else shipMap.set(key, { po: it.po, dest: d.dest, code: it.code, barcode: it.barcode || "", name: it.name, qty: it.qty, isMilkRun });
+      }
+    }
+  }
+  const shipRows = [...shipMap.values()].sort((a, b) =>
+    a.dest !== b.dest ? a.dest.localeCompare(b.dest) : a.po !== b.po ? a.po.localeCompare(b.po) : a.code.localeCompare(b.code)
+  );
+  const ship: (string | number)[][] = [
+    ["발주번호", "배송지", "입고유형", "입고 예정일", "상품번호", "바코드", "상품명", "수량", "송장번호", "확정수량"],
+  ];
+  for (const r of shipRows) {
+    ship.push([r.po, r.dest, r.isMilkRun ? "밀크런" : "쉽먼트", etaDate, r.code, r.barcode, r.name, r.qty, "", r.qty]);
+  }
+
   const wb = new ExcelJS.Workbook();
   addAoaSheet(wb, "배송지요약", sum);
   addAoaSheet(wb, "박스요약", bsum);
@@ -94,6 +129,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const r = detWs.addRow(row);
     if (onPallet) r.eachCell({ includeEmpty: true }, (cell) => (cell.fill = PALLET_ROW_FILL));
   }
+
+  addAoaSheet(wb, "쉽먼트", ship);
 
   if (detail.shorts.length) {
     const s: (string | number)[][] = [["상품번호", "상품명", "부족수량"]];

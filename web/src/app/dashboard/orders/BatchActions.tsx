@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { confirmShipment, undoShipment, reflectBatch, cancelDraft } from "./actions";
+import ExportPackingListButton from "@/components/ExportPackingListButton";
 
 export default function BatchActions({
   batchId,
@@ -63,9 +64,7 @@ export default function BatchActions({
         <span className="badge b-ship">박스 충분</span>
       )}
       {status === "CONFIRMED" && <span className="badge b-ship">재고 차감 완료</span>}
-      <a className="btn ghost sm" href={`/api/batches/${batchId}/export`}>
-        엑셀 내보내기
-      </a>
+      <ExportPackingListButton batchId={batchId} />
       {hasPallets && (
         <a className="btn ghost sm" href={`/api/batches/${batchId}/export-pallets`}>
           팔레트 명세서 엑셀
