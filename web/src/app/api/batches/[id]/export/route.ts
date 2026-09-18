@@ -5,9 +5,11 @@ import { getBatchDetail } from "@/lib/batch-view";
 import { getTenantDb } from "@/lib/tenant-db";
 import { contentDisposition } from "@/lib/download";
 
-// PackingList 시트: 팔레트에 실린 박스의 품목 행 음영(연한 황색) — 낱개 박스 행과 구분
+// PackingList 시트: 팔레트(밀크런) 박스 행은 황색 계열, 낱개(쉽먼트) 박스 행은 회색/흰색 계열로 구분하고,
+// 각 계열 안에서 박스가 바뀔 때마다 진한 색↔연한 색을 번갈아 넣어 같은 박스 행끼리 묶어 보이게 한다.
 const PALLET_ROW_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFCE9B0" } };
-// 밀크런/쉽먼트 시트: 박스가 바뀔 때마다 번갈아 넣는 음영(연한 회색) — 같은 박스 행끼리 묶어 보이게
+const PALLET_ROW_FILL_ALT: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF6DD" } };
+// 밀크런/쉽먼트 시트(및 PackingList의 낱개 박스): 박스가 바뀔 때마다 번갈아 넣는 음영(연한 회색)
 const BOX_BAND_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEDEDED" } };
 
 type Cell = string | number;
@@ -138,9 +140,19 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const detWs = wb.addWorksheet("PackingList");
   detWs.addRow(detHeader);
   detWs.getRow(1).font = { bold: true };
-  for (const { row, onPallet } of detRows) {
-    const r = detWs.addRow(row);
-    if (onPallet) fillRow(r, PALLET_ROW_FILL);
+  {
+    // 박스번호(2번째 열)가 바뀔 때마다 진한↔연한을 토글. 팔레트 박스는 황색 계열, 낱개 박스는 회색/흰색.
+    let prevBox: Cell | null = null;
+    let banded = false;
+    for (const { row, onPallet } of detRows) {
+      if (row[1] !== prevBox) {
+        banded = prevBox === null ? false : !banded;
+        prevBox = row[1];
+      }
+      const r = detWs.addRow(row);
+      if (onPallet) fillRow(r, banded ? PALLET_ROW_FILL_ALT : PALLET_ROW_FILL);
+      else if (banded) fillRow(r, BOX_BAND_FILL);
+    }
   }
 
   addBoxBandedSheet(wb, "밀크런", shipHeader, milkRunRows);
