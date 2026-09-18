@@ -207,10 +207,13 @@ model OrderLine {
   supplyPrice  Int      @default(0) // 공급가
   vat          Int      @default(0) // 부가세
   totalAmount  Int      @default(0) // 총발주매입금 — 통계 대시보드의 금액 기준
+  // 주문 파일 업로드 시점에 상품 마스터에 없어서 즉석 등록된 상품의 라인이면 true.
+  // 엑셀 내보내기의 "미등록상품" 시트 근거 — 상품 마스터 쪽 값은 나중에 수정될 수 있어 라인에 남긴다.
+  unregistered Boolean  @default(false)
 }
 
 model Box {
-  // 박스 (한 박스 = 하나의 발주번호 물품만 포함)
+  // 박스 (기본은 한 박스 = 하나의 발주번호 물품. 소량 발주 병합 예외로 2개 이상일 수 있음 — CLAUDE.md §3)
   id        String   @id @default(cuid())
   sheetId   String
   sheet     OrderSheet @relation(fields: [sheetId], references: [id], onDelete: Cascade)

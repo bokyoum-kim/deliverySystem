@@ -68,6 +68,7 @@ export async function generatePacking(
   const nameByCode = new Map<string, string>();
   for (const l of lines) if (!nameByCode.has(l.code)) nameByCode.set(l.code, l.name);
   const missingCodes = [...nameByCode.keys()].filter((code) => !productMap.has(code));
+  const missingCodeSet = new Set(missingCodes); // 라인에 "미등록상품" 표시를 남기기 위해 보관
   if (missingCodes.length) {
     const createdProducts = await db.product.createManyAndReturn({
       data: missingCodes.map((code) => ({
@@ -159,6 +160,7 @@ export async function generatePacking(
             supplyPrice: l.supplyPrice ?? 0,
             vat: l.vat ?? 0,
             totalAmount: l.totalAmount ?? 0,
+            unregistered: missingCodeSet.has(l.code),
           };
         })
         .filter((r): r is NonNullable<typeof r> => r !== null);

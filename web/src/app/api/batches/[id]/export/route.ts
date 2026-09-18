@@ -5,13 +5,40 @@ import { getBatchDetail } from "@/lib/batch-view";
 import { getTenantDb } from "@/lib/tenant-db";
 import { contentDisposition } from "@/lib/download";
 
-// 팔레트에 실린 박스의 품목 행에 표시하는 음영(연한 황색) — 낱개 박스 행과 구분하기 위함
+// PackingList 시트: 팔레트에 실린 박스의 품목 행 음영(연한 황색) — 낱개 박스 행과 구분
 const PALLET_ROW_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFCE9B0" } };
+// 밀크런/쉽먼트 시트: 박스가 바뀔 때마다 번갈아 넣는 음영(연한 회색) — 같은 박스 행끼리 묶어 보이게
+const BOX_BAND_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEDEDED" } };
 
-function addAoaSheet(wb: ExcelJS.Workbook, name: string, rows: (string | number)[][]) {
+type Cell = string | number;
+
+function addAoaSheet(wb: ExcelJS.Workbook, name: string, rows: Cell[][]) {
   const ws = wb.addWorksheet(name);
   for (const row of rows) ws.addRow(row);
   ws.getRow(1).font = { bold: true };
+  return ws;
+}
+
+function fillRow(row: ExcelJS.Row, fill: ExcelJS.Fill) {
+  row.eachCell({ includeEmpty: true }, (cell) => (cell.fill = fill));
+}
+
+// 박스번호(첫 열)가 바뀔 때마다 음영을 켰다 껐다 하며 행을 추가한다
+function addBoxBandedSheet(wb: ExcelJS.Workbook, name: string, header: string[], rows: Cell[][]) {
+  const ws = wb.addWorksheet(name);
+  ws.addRow(header);
+  ws.getRow(1).font = { bold: true };
+  let prevBox: Cell | null = null;
+  let banded = false;
+  for (const row of rows) {
+    if (row[0] !== prevBox) {
+      banded = prevBox === null ? false : !banded;
+      prevBox = row[0];
+    }
+    const r = ws.addRow(row);
+    if (banded) fillRow(r, BOX_BAND_FILL);
+  }
+  return ws;
 }
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -32,10 +59,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const warehouses = await db.warehouse.findMany();
   const whByName = new Map(warehouses.map((w) => [w.name, w]));
 
-  const sum: (string | number)[][] = [["배송지", "통합지역", "지역", "주소", "박스수", "패킹수량"]];
-  const bsum: (string | number)[][] = [
-    ["배송지", "박스번호", "팔레트번호", "박스종류", "품목수", "총수량", "총중량(g)"],
-  ];
+  const sum: Cell[][] = [["배송지", "통합지역", "지역", "주소", "박스수", "패킹수량"]];
+  const bsum: Cell[][] = [["배송지", "박스번호", "팔레트번호", "박스종류", "품목수", "총수량", "총중량(g)"]];
   const detHeader = [
     "배송지",
     "박스번호",
@@ -50,15 +75,35 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     "포장중량(g)",
     "라인중량(g)",
   ];
-  const detRows: { row: (string | number)[]; onPallet: boolean }[] = [];
+  const detRows: { row: Cell[]; onPallet: boolean }[] = [];
+
+  // 밀크런(팔레트 포장분) / 쉽먼트(박스 포장분) — 쿠팡 쉽먼트 업로드 양식 컬럼 앞에 박스번호를 붙인 형태.
+  // 박스 단위 행이라 같은 발주번호·상품이 여러 박스에 나뉘면 박스마다 한 행씩 나온다.
+  const shipHeader = [
+    "박스번호",
+    "발주번호",
+    "배송지",
+    "입고유형",
+    "입고 예정일",
+    "상품번호",
+    "바코드",
+    "상품명",
+    "수량",
+    "송장번호",
+    "확정수량",
+  ];
+  const milkRunRows: Cell[][] = [];
+  const shipmentRows: Cell[][] = [];
 
   for (const d of detail.dests) {
     const wh = whByName.get(d.dest);
     sum.push([d.dest, wh?.region || "", wh?.area || "", wh?.address || "", d.boxes.length, d.qty]);
     for (const bx of d.boxes) {
-      const id2 = `${d.dest}-B${String(bx.boxNo).padStart(2, "0")}`;
+      const boxId = `${d.dest}-B${String(bx.boxNo).padStart(2, "0")}`;
       const onPallet = bx.palletNo != null;
       const palletId = onPallet ? `${d.dest}-PLT${String(bx.palletNo).padStart(2, "0")}` : "";
+      const inboundType = onPallet ? "밀크런" : "쉽먼트";
+      const target = onPallet ? milkRunRows : shipmentRows;
       let bq = 0,
         bw = 0;
       for (const it of bx.items) {
@@ -68,80 +113,43 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         bq += it.qty;
         bw += lw;
         detRows.push({
-          row: [
-            d.dest,
-            id2,
-            palletId,
-            bx.boxSpecName,
-            it.po,
-            it.code,
-            it.barcode || "",
-            it.name,
-            it.qty,
-            packQty,
-            it.weightG,
-            lw,
-          ],
+          row: [d.dest, boxId, palletId, bx.boxSpecName, it.po, it.code, it.barcode || "", it.name, it.qty, packQty, it.weightG, lw],
           onPallet,
         });
+        target.push([boxId, it.po, d.dest, inboundType, etaDate, it.code, it.barcode || "", it.name, it.qty, "", it.qty]);
       }
-      bsum.push([d.dest, id2, palletId, bx.boxSpecName, bx.items.length, bq, bw]);
+      bsum.push([d.dest, boxId, palletId, bx.boxSpecName, bx.items.length, bq, bw]);
     }
   }
 
-  // 쉽먼트 시트 — 발주번호+배송지+상품 단위로 합산(박스 단위 아님). 입고유형은 그 배송지
-  // 박스가 팔레트로 묶였는지(밀크런) 낱개인지(쉽먼트)로 정해지는데, 같은 배송지 박스는
-  // 팔레트 전환 기준을 넘으면 전부 팔레트로 묶이므로(packing.ts) 배송지 단위로 한 번만 봐도 된다.
-  type ShipKey = string;
-  const shipMap = new Map<
-    ShipKey,
-    { po: string; dest: string; code: string; barcode: string; name: string; qty: number; isMilkRun: boolean }
-  >();
-  for (const d of detail.dests) {
-    const isMilkRun = d.boxes.some((b) => b.palletNo != null);
-    for (const bx of d.boxes) {
-      for (const it of bx.items) {
-        const key = `${it.po}::${d.dest}::${it.code}`;
-        const cur = shipMap.get(key);
-        if (cur) cur.qty += it.qty;
-        else shipMap.set(key, { po: it.po, dest: d.dest, code: it.code, barcode: it.barcode || "", name: it.name, qty: it.qty, isMilkRun });
-      }
-    }
-  }
-  const shipRows = [...shipMap.values()].sort((a, b) =>
-    a.dest !== b.dest ? a.dest.localeCompare(b.dest) : a.po !== b.po ? a.po.localeCompare(b.po) : a.code.localeCompare(b.code)
-  );
-  const ship: (string | number)[][] = [
-    ["발주번호", "배송지", "입고유형", "입고 예정일", "상품번호", "바코드", "상품명", "수량", "송장번호", "확정수량"],
-  ];
-  for (const r of shipRows) {
-    ship.push([r.po, r.dest, r.isMilkRun ? "밀크런" : "쉽먼트", etaDate, r.code, r.barcode, r.name, r.qty, "", r.qty]);
-  }
+  const unreg: Cell[][] = [["발주번호", "배송지", "상품번호", "상품명", "수량"]];
+  for (const x of detail.unregistered) unreg.push([x.po, x.dest, x.code, x.name, x.qty]);
 
+  const shorts: Cell[][] = [["상품번호", "상품명", "부족수량"]];
+  for (const x of detail.shorts) shorts.push([x.code, x.name, x.short]);
+
+  const holds: Cell[][] = [["발주번호", "배송지", "상품번호", "상품명", "수량"]];
+  for (const x of detail.holds) holds.push([x.po, x.dest, x.code, x.name, x.qty]);
+
+  // 시트 순서 고정: PackingList, 밀크런, 쉽먼트, 미등록상품, 배송지요약, 박스요약, 재고부족, 단종
+  // (데이터가 없는 시트도 헤더만으로 항상 만들어 순서가 파일마다 달라지지 않게 한다)
   const wb = new ExcelJS.Workbook();
-  addAoaSheet(wb, "배송지요약", sum);
-  addAoaSheet(wb, "박스요약", bsum);
 
   const detWs = wb.addWorksheet("PackingList");
   detWs.addRow(detHeader);
   detWs.getRow(1).font = { bold: true };
   for (const { row, onPallet } of detRows) {
     const r = detWs.addRow(row);
-    if (onPallet) r.eachCell({ includeEmpty: true }, (cell) => (cell.fill = PALLET_ROW_FILL));
+    if (onPallet) fillRow(r, PALLET_ROW_FILL);
   }
 
-  addAoaSheet(wb, "쉽먼트", ship);
-
-  if (detail.shorts.length) {
-    const s: (string | number)[][] = [["상품번호", "상품명", "부족수량"]];
-    for (const x of detail.shorts) s.push([x.code, x.name, x.short]);
-    addAoaSheet(wb, "재고부족", s);
-  }
-  if (detail.holds.length) {
-    const h: (string | number)[][] = [["발주번호", "배송지", "상품번호", "상품명", "수량"]];
-    for (const x of detail.holds) h.push([x.po, x.dest, x.code, x.name, x.qty]);
-    addAoaSheet(wb, "반송", h);
-  }
+  addBoxBandedSheet(wb, "밀크런", shipHeader, milkRunRows);
+  addBoxBandedSheet(wb, "쉽먼트", shipHeader, shipmentRows);
+  addAoaSheet(wb, "미등록상품", unreg);
+  addAoaSheet(wb, "배송지요약", sum);
+  addAoaSheet(wb, "박스요약", bsum);
+  addAoaSheet(wb, "재고부족", shorts);
+  addAoaSheet(wb, "단종", holds);
 
   const buf = await wb.xlsx.writeBuffer();
   return new NextResponse(new Uint8Array(buf), {

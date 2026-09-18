@@ -23,6 +23,8 @@ export type BatchDestView = {
 };
 export type BatchHoldView = { po: string; dest: string; code: string; name: string; qty: number };
 export type BatchShortView = { code: string; name: string; short: number };
+// 주문 파일에는 있었지만 업로드 시점에 상품 마스터에 없어 즉석 등록된 상품의 라인
+export type BatchUnregisteredView = { po: string; dest: string; code: string; name: string; qty: number };
 export type BatchBoxUsageView = { boxSpecId: string | null; name: string; count: number };
 
 export type BatchDetail = {
@@ -37,6 +39,7 @@ export type BatchDetail = {
   dests: BatchDestView[];
   holds: BatchHoldView[];
   shorts: BatchShortView[];
+  unregistered: BatchUnregisteredView[];
   poCount: number;
   boxesUsed: number;
   palletTotal: number;
@@ -64,6 +67,7 @@ export async function getBatchDetail(db: PrismaClient, batchId: string): Promise
 
   const destMap = new Map<string, BatchDestView>();
   const holds: BatchHoldView[] = [];
+  const unregistered: BatchUnregisteredView[] = [];
   let shipTotal = 0;
   let boxesUsed = 0;
   const palletNos = new Set<string>();
@@ -74,6 +78,15 @@ export async function getBatchDetail(db: PrismaClient, batchId: string): Promise
     const destView = destMap.get(sheet.destName)!;
 
     for (const line of sheet.lines) {
+      if (line.unregistered) {
+        unregistered.push({
+          po: sheet.poNumber,
+          dest: sheet.destName,
+          code: line.product.code,
+          name: line.product.name,
+          qty: line.confirmedQty,
+        });
+      }
       if (line.status === "RETURN") {
         holds.push({
           po: sheet.poNumber,
@@ -139,6 +152,7 @@ export async function getBatchDetail(db: PrismaClient, batchId: string): Promise
     dests,
     holds,
     shorts,
+    unregistered,
     poCount: poSet.size,
     boxesUsed,
     palletTotal: palletNos.size,
