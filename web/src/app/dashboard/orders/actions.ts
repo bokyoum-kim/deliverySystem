@@ -30,10 +30,88 @@ export async function getActiveBatch() {
   return getActiveBatchWith(db);
 }
 
+export type MissingProductInput = {
+  code: string;
+  name: string;
+  barcode?: string;
+  packQty: number;
+  weightG: number;
+  lengthMm: number;
+  widthMm: number;
+  heightMm: number;
+  price: number;
+};
+
+// 주문 파일에는 있지만 상품 마스터에 없는 상품을, 패킹 생성 전에 사용자가 크기·무게 등을 직접
+// 입력해 등록하는 액션. (예전에는 임시 기본값으로 자동 등록했지만, 그 값이 패킹 계산에 그대로
+// 쓰여 실제와 어긋나는 문제가 있어 2026-09부터 반드시 먼저 등록하도록 바꿈.)
+export async function registerMissingProducts(
+  items: MissingProductInput[]
+): Promise<{ error?: string; registered?: string[] }> {
+  if (!items.length) return { registered: [] };
+
+  const seen = new Set<string>();
+  const rows: MissingProductInput[] = [];
+  for (const raw of items) {
+    const code = String(raw.code ?? "").trim();
+    if (!code || seen.has(code)) continue;
+    seen.add(code);
+    const name = String(raw.name ?? "").trim();
+    const nums = {
+      packQty: Number(raw.packQty),
+      weightG: Number(raw.weightG),
+      lengthMm: Number(raw.lengthMm),
+      widthMm: Number(raw.widthMm),
+      heightMm: Number(raw.heightMm),
+      price: Number(raw.price),
+    };
+    if (!name) return { error: `상품명을 입력하세요. (상품번호 ${code})` };
+    if (!Number.isInteger(nums.packQty) || nums.packQty < 1) return { error: `포장수량은 1 이상의 정수여야 합니다. (상품번호 ${code})` };
+    for (const [k, label] of [
+      ["weightG", "무게"],
+      ["lengthMm", "가로"],
+      ["widthMm", "세로"],
+      ["heightMm", "높이"],
+    ] as const) {
+      if (!Number.isFinite(nums[k]) || nums[k] <= 0) return { error: `${label}은(는) 0보다 큰 숫자여야 합니다. (상품번호 ${code})` };
+    }
+    if (!Number.isFinite(nums.price) || nums.price < 0) return { error: `단가는 0 이상의 숫자여야 합니다. (상품번호 ${code})` };
+    rows.push({ code, name, barcode: String(raw.barcode ?? "").trim() || undefined, ...nums });
+  }
+  if (!rows.length) return { registered: [] };
+
+  const db = await getTenantDb();
+  const existing = await db.product.findMany({ where: { code: { in: rows.map((r) => r.code) } }, select: { code: true } });
+  const existingCodes = new Set(existing.map((p) => p.code));
+  const toCreate = rows.filter((r) => !existingCodes.has(r.code));
+
+  if (toCreate.length) {
+    const created = await db.product.createManyAndReturn({
+      data: toCreate.map((r) => ({
+        code: r.code,
+        name: r.name,
+        barcode: r.barcode ?? null,
+        packQty: r.packQty,
+        weightG: Math.round(r.weightG),
+        lengthMm: Math.round(r.lengthMm),
+        widthMm: Math.round(r.widthMm),
+        heightMm: Math.round(r.heightMm),
+        price: Math.round(r.price),
+      })),
+    });
+    await db.stock.createMany({ data: created.map((p) => ({ productId: p.id, quantity: 0 })) });
+  }
+
+  revalidatePath("/dashboard/products");
+  revalidatePath("/dashboard/orders");
+  revalidatePath("/dashboard");
+  return { registered: rows.map((r) => r.code) };
+}
+
 export async function generatePacking(
   lines: OrderLineInput[],
-  opts: { eta: number; cap: number; enabledBoxSpecIds?: string[] }
-): Promise<{ error?: string; batchKey?: string }> {
+  opts: { eta: number; cap: number; enabledBoxSpecIds?: string[]; newlyRegisteredCodes?: string[] }
+): Promise<{ error?: string; batchKey?: string; missingCodes?: string[] }> {
   if (!lines.length) return { error: "주문 라인이 없습니다." };
 
   const db = await getTenantDb();
@@ -63,42 +141,17 @@ export async function generatePacking(
     productIdByCode.set(p.code, p.id);
   }
 
-  // 주문에 있지만 상품 마스터에 없는 코드는 최소 정보로 즉석 등록 (프로토타입과 동일한 동작)
-  // 대량 주문에서도 빠르도록 코드당 1건씩이 아니라 한 번에 bulk insert
-  const nameByCode = new Map<string, string>();
-  for (const l of lines) if (!nameByCode.has(l.code)) nameByCode.set(l.code, l.name);
-  const missingCodes = [...nameByCode.keys()].filter((code) => !productMap.has(code));
-  const missingCodeSet = new Set(missingCodes); // 라인에 "미등록상품" 표시를 남기기 위해 보관
+  // 주문에 있지만 상품 마스터에 없는 코드가 있으면 진행하지 않는다 — 화면에서 먼저
+  // registerMissingProducts로 크기·무게 등을 등록해야 한다. (임시값 자동 등록은 폐지.)
+  const missingCodes = [...new Set(lines.map((l) => l.code))].filter((code) => !productMap.has(code));
   if (missingCodes.length) {
-    const createdProducts = await db.product.createManyAndReturn({
-      data: missingCodes.map((code) => ({
-        code,
-        name: nameByCode.get(code) || code,
-        weightG: 15,
-        lengthMm: 150,
-        widthMm: 90,
-        heightMm: 20,
-        price: 0,
-      })),
-    });
-    await db.stock.createMany({
-      data: createdProducts.map((p) => ({ productId: p.id, quantity: 0 })),
-    });
-    for (const p of createdProducts) {
-      productMap.set(p.code, {
-        code: p.code,
-        name: p.name,
-        weightG: p.weightG,
-        lengthMm: p.lengthMm,
-        widthMm: p.widthMm,
-        heightMm: p.heightMm,
-        packQty: p.packQty,
-        stock: 0,
-        discontinued: false,
-      });
-      productIdByCode.set(p.code, p.id);
-    }
+    return {
+      error: `상품 마스터에 없는 상품이 ${missingCodes.length}종 있습니다. 먼저 등록해주세요.`,
+      missingCodes,
+    };
   }
+  // 이번 업로드를 위해 방금 등록한 상품의 라인에는 "미등록상품" 표시를 남긴다(엑셀 미등록상품 시트 근거)
+  const missingCodeSet = new Set((opts.newlyRegisteredCodes ?? []).filter((c) => productMap.has(c)));
 
   const boxSpecsLite: BoxSpecLite[] = dbBoxSpecs
     .filter((b) => !opts.enabledBoxSpecIds || opts.enabledBoxSpecIds.includes(b.id))
