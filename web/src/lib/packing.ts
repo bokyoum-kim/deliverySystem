@@ -319,7 +319,8 @@ export function runPacking(
   boxSpecs: BoxSpecLite[],
   opts: { eta?: number; cap?: number } = {}
 ): PackResult {
-  const eta = Math.min(95, Math.max(30, opts.eta ?? 80));
+  // 충진율(%): 박스 용적 중 실제로 채우는 비율. 기본 100 (2026-09, 이전 80). 30~100 사이로 제한.
+  const eta = Math.min(100, Math.max(30, opts.eta ?? 100));
   const cap = Math.max(1, opts.cap ?? 100);
   productLookupCache = products;
 

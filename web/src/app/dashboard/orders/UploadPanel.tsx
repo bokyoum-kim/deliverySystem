@@ -121,7 +121,7 @@ export default function UploadPanel({
   const fileRef = useRef<HTMLInputElement>(null);
   const [lines, setLines] = useState<OrderLineInput[] | null>(null);
   const [msg, setMsg] = useState<{ type: "err" | "load"; text: string } | null>(null);
-  const [eta, setEta] = useState(80);
+  const [eta, setEta] = useState(100); // 충진율 % 기본값 (2026-09: 80 → 100)
   const [cap, setCap] = useState(defaultCap);
   const [savingCap, setSavingCap] = useState(false);
   const [enabledIds, setEnabledIds] = useState<Set<string>>(new Set(boxSpecs.map((b) => b.id)));
@@ -364,7 +364,7 @@ export default function UploadPanel({
         </div>
         <div>
           <label style={{ fontSize: 12, color: "var(--muted)", display: "block" }}>충진율 %</label>
-          <input className="txt mono" type="number" min={30} max={95} value={eta} onChange={(e) => setEta(Number(e.target.value) || 80)} style={{ width: 70 }} />
+          <input className="txt mono" type="number" min={30} max={100} value={eta} onChange={(e) => setEta(Number(e.target.value) || 100)} style={{ width: 70 }} />
         </div>
         <div>
           <label style={{ fontSize: 12, color: "var(--muted)", display: "block" }}>박스당 최대 수량</label>

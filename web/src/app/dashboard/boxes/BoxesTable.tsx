@@ -24,7 +24,7 @@ export default function BoxesTable({ boxes }: { boxes: BoxRow[] }) {
           <th>세로</th>
           <th>높이</th>
           <th className="num-c">허용무게(g)</th>
-          <th className="num-c">유효용적(cm³, 충진율80%)</th>
+          <th className="num-c">유효용적(cm³, 충진율100%)</th>
           <th className="num-c">보유수량</th>
           <th></th>
         </tr>
@@ -55,7 +55,8 @@ function Row({ box }: { box: BoxRow }) {
     maxWeightG: box.maxWeightG,
     stockQty: box.stockQty,
   });
-  const effVol = Math.round((f.lengthMm * f.widthMm * f.heightMm * 0.8) / 1000);
+  // 기본 충진율 100% 기준 (2026-09: 0.8 → 1.0). Order 화면에서 충진율을 낮추면 실제 적재는 그만큼 줄어든다.
+  const effVol = Math.round((f.lengthMm * f.widthMm * f.heightMm) / 1000);
 
   async function save() {
     const fd = new FormData();
