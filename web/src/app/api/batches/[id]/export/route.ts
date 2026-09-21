@@ -25,8 +25,14 @@ function fillRow(row: ExcelJS.Row, fill: ExcelJS.Fill) {
   row.eachCell({ includeEmpty: true }, (cell) => (cell.fill = fill));
 }
 
-// 박스번호(첫 열)가 바뀔 때마다 음영을 켰다 껐다 하며 행을 추가한다
-function addBoxBandedSheet(wb: ExcelJS.Workbook, name: string, header: string[], rows: Cell[][]) {
+// 박스번호(첫 열)가 바뀔 때마다 fills[0] ↔ fills[1]을 번갈아 넣으며 행을 추가한다 (null이면 음영 없음)
+function addBoxBandedSheet(
+  wb: ExcelJS.Workbook,
+  name: string,
+  header: string[],
+  rows: Cell[][],
+  fills: [ExcelJS.Fill | null, ExcelJS.Fill | null]
+) {
   const ws = wb.addWorksheet(name);
   ws.addRow(header);
   ws.getRow(1).font = { bold: true };
@@ -38,7 +44,8 @@ function addBoxBandedSheet(wb: ExcelJS.Workbook, name: string, header: string[],
       prevBox = row[0];
     }
     const r = ws.addRow(row);
-    if (banded) fillRow(r, BOX_BAND_FILL);
+    const fill = fills[banded ? 1 : 0];
+    if (fill) fillRow(r, fill);
   }
   return ws;
 }
@@ -155,8 +162,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     }
   }
 
-  addBoxBandedSheet(wb, "밀크런", shipHeader, milkRunRows);
-  addBoxBandedSheet(wb, "쉽먼트", shipHeader, shipmentRows);
+  // 밀크런은 PackingList의 팔레트 행과 같은 황색 계열로, 쉽먼트는 회색↔흰색으로 박스별 토글
+  addBoxBandedSheet(wb, "밀크런", shipHeader, milkRunRows, [PALLET_ROW_FILL, PALLET_ROW_FILL_ALT]);
+  addBoxBandedSheet(wb, "쉽먼트", shipHeader, shipmentRows, [null, BOX_BAND_FILL]);
   addAoaSheet(wb, "미등록상품", unreg);
   addAoaSheet(wb, "배송지요약", sum);
   addAoaSheet(wb, "박스요약", bsum);
