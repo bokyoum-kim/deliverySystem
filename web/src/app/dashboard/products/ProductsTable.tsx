@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { updateProduct } from "./actions";
+import { updateProduct, deleteProduct } from "./actions";
 
 export type ProductRow = {
   id: string;
@@ -35,6 +35,7 @@ export default function ProductsTable({ products }: { products: ProductRow[] }) 
           <th>단가</th>
           <th className="num-c">재고</th>
           <th>단종</th>
+          <th>삭제</th>
         </tr>
       </thead>
       <tbody>
@@ -43,7 +44,7 @@ export default function ProductsTable({ products }: { products: ProductRow[] }) 
         ))}
         {products.length === 0 && (
           <tr>
-            <td colSpan={11} className="muted" style={{ textAlign: "center", padding: 24 }}>
+            <td colSpan={12} className="muted" style={{ textAlign: "center", padding: 24 }}>
               상품이 없습니다.
             </td>
           </tr>
@@ -85,6 +86,16 @@ function Row({ product }: { product: ProductRow }) {
     router.refresh();
   }
 
+  async function remove() {
+    if (!confirm(`"${product.code} ${product.name}" 상품을 삭제할까요?`)) return;
+    const res = await deleteProduct(product.id);
+    if (res.error) {
+      alert(res.error);
+      return;
+    }
+    router.refresh();
+  }
+
   function field(key: keyof typeof f, mono = true) {
     return (
       <input
@@ -119,6 +130,11 @@ function Row({ product }: { product: ProductRow }) {
             save(next);
           }}
         />
+      </td>
+      <td>
+        <button className="btn danger sm" type="button" onClick={remove}>
+          삭제
+        </button>
       </td>
     </tr>
   );
