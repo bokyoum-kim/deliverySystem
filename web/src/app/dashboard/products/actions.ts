@@ -65,30 +65,47 @@ export async function updateProduct(formData: FormData) {
   revalidatePath("/dashboard/products");
 }
 
-// 잘못 등록된 상품 삭제. 발주 라인·박스 내역·구매발주에서 이미 참조 중이면(=이력이 있으면)
-// 지우면 과거 패킹 기록이 깨지므로 거부하고, 대신 "단종" 처리하도록 안내한다.
-export async function deleteProduct(id: string): Promise<{ error?: string }> {
-  if (!id) return { error: "삭제할 상품을 찾지 못했습니다." };
+// 잘못 등록된 상품 일괄 삭제. 발주 라인·박스 내역·구매발주에서 이미 참조 중인 상품은
+// 지우면 과거 패킹 기록이 깨지므로 건너뛰고, 지울 수 있는 것만 지운 뒤 건너뛴 사유를 돌려준다
+// (일부만 막혔다고 전체를 취소하면 여러 개 선택해 지우는 의미가 없어서 부분 삭제를 택함).
+export async function deleteProducts(
+  ids: string[]
+): Promise<{ error?: string; deleted?: number; blocked?: { code: string; reason: string }[] }> {
+  const uniqueIds = [...new Set((ids ?? []).filter(Boolean))];
+  if (!uniqueIds.length) return { error: "삭제할 상품을 선택하세요." };
+
   const db = await getTenantDb();
-  const p = await db.product.findUnique({
-    where: { id },
-    select: { code: true, _count: { select: { orderLines: true, boxItems: true, purchaseOrders: true } } },
+  const found = await db.product.findMany({
+    where: { id: { in: uniqueIds } },
+    select: {
+      id: true,
+      code: true,
+      _count: { select: { orderLines: true, boxItems: true, purchaseOrders: true } },
+    },
   });
-  if (!p) return { error: "삭제할 상품을 찾지 못했습니다." };
-  const refs: string[] = [];
-  if (p._count.orderLines) refs.push(`발주 라인 ${p._count.orderLines}건`);
-  if (p._count.boxItems) refs.push(`박스 내역 ${p._count.boxItems}건`);
-  if (p._count.purchaseOrders) refs.push(`구매발주 ${p._count.purchaseOrders}건`);
-  if (refs.length) {
-    return {
-      error: `${p.code}은(는) 이미 사용된 이력이 있어(${refs.join(", ")}) 삭제할 수 없습니다. 더 이상 쓰지 않으려면 '단종'에 체크하세요.`,
-    };
+  if (!found.length) return { error: "삭제할 상품을 찾지 못했습니다." };
+
+  const deletableIds: string[] = [];
+  const blocked: { code: string; reason: string }[] = [];
+  for (const p of found) {
+    const refs: string[] = [];
+    if (p._count.orderLines) refs.push(`발주 라인 ${p._count.orderLines}건`);
+    if (p._count.boxItems) refs.push(`박스 내역 ${p._count.boxItems}건`);
+    if (p._count.purchaseOrders) refs.push(`구매발주 ${p._count.purchaseOrders}건`);
+    if (refs.length) blocked.push({ code: p.code, reason: refs.join(", ") });
+    else deletableIds.push(p.id);
   }
-  await db.stock.deleteMany({ where: { productId: id } });
-  await db.product.delete({ where: { id } });
+
+  let deleted = 0;
+  if (deletableIds.length) {
+    await db.stock.deleteMany({ where: { productId: { in: deletableIds } } });
+    const res = await db.product.deleteMany({ where: { id: { in: deletableIds } } });
+    deleted = res.count;
+  }
+
   revalidatePath("/dashboard/products");
   revalidatePath("/dashboard");
-  return {};
+  return { deleted, blocked };
 }
 
 export async function bulkUpsertProducts(

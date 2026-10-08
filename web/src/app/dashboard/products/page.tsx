@@ -80,9 +80,7 @@ export default async function ProductsPage({
           포장수량 단위(포장 1개) 기준값입니다.
         </p>
 
-        <div style={{ overflowX: "auto" }}>
-          <ProductsTable products={rows} />
-        </div>
+        <ProductsTable products={rows} />
       </div>
     </section>
   );
