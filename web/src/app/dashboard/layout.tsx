@@ -88,7 +88,10 @@ export default async function DashboardLayout({
         </div>
       </aside>
 
-      <main>
+      {/* minWidth:0 — 그리드 칸(1fr)은 기본값(auto)이면 내용보다 작게 못 줄어서, 넓은 표가 있으면
+          칸이 화면 밖까지 늘어나 페이지 전체가 가로로 스크롤된다. 0으로 두면 표가 자기 영역
+          안에서만(overflowX:auto) 스크롤된다. */}
+      <main style={{ minWidth: 0 }}>
         {/* 상품·패킹 등 열이 많은 표가 1200px에서는 가로로 눌려(상품명이 잘려) 1600으로 넓힘 */}
         <div style={{ padding: "24px 30px 60px", maxWidth: 1600 }}>{children}</div>
       </main>
