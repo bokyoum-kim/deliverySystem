@@ -89,7 +89,8 @@ export default async function DashboardLayout({
       </aside>
 
       <main>
-        <div style={{ padding: "24px 30px 60px", maxWidth: 1200 }}>{children}</div>
+        {/* 상품·패킹 등 열이 많은 표가 1200px에서는 가로로 눌려(상품명이 잘려) 1600으로 넓힘 */}
+        <div style={{ padding: "24px 30px 60px", maxWidth: 1600 }}>{children}</div>
       </main>
     </div>
   );

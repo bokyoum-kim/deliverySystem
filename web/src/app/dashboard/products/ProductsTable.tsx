@@ -126,10 +126,10 @@ export default function ProductsTable({ products }: { products: ProductRow[] }) 
                 />
               </th>
               <th>상품번호</th>
-              {/* 바코드는 13자리라 최소 폭을 보장(width만 주면 자동 레이아웃에서 쪼그라든다) */}
-              <th style={{ minWidth: 120 }}>바코드</th>
-              {/* width:100%로 남는 가로 공간을 상품명이 모두 가져가고, 최소 460px은 보장 */}
-              <th style={{ width: "100%", minWidth: 460 }}>상품명</th>
+              {/* 바코드 13자리가 다 보이는 최소 폭(width만 주면 자동 레이아웃에서 쪼그라든다) */}
+              <th style={{ minWidth: 150 }}>바코드</th>
+              {/* width:100%로 남는 가로 공간을 상품명이 모두 가져가고, 최소 560px은 보장 */}
+              <th style={{ width: "100%", minWidth: 560 }}>상품명</th>
               <th>포장수량</th>
               <th>무게</th>
               <th>가로</th>
