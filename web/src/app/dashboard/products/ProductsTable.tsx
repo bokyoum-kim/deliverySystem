@@ -126,8 +126,9 @@ export default function ProductsTable({ products }: { products: ProductRow[] }) 
                 />
               </th>
               <th>상품번호</th>
-              <th>바코드</th>
-              <th>상품명</th>
+              {/* 바코드는 13자리 고정이라 폭을 묶어두고, 남는 가로 공간은 긴 상품명이 가져가게 한다 */}
+              <th style={{ width: 140 }}>바코드</th>
+              <th style={{ minWidth: 460 }}>상품명</th>
               <th>포장수량</th>
               <th>무게</th>
               <th>가로</th>
@@ -197,10 +198,13 @@ function Row({
   }
 
   function field(key: keyof typeof f, mono = true) {
+    const text = !mono;
     return (
       <input
         className="cell"
-        style={mono ? undefined : { fontFamily: "inherit", textAlign: "left", width: "100%" }}
+        style={text ? { fontFamily: "inherit", textAlign: "left", width: "100%" } : undefined}
+        // 열을 넓혀도 안 들어가는 긴 상품명은 마우스를 올리면 전체가 보이도록
+        title={text ? String(f[key] ?? "") : undefined}
         value={f[key] as string | number}
         onChange={(e) => setF({ ...f, [key]: e.target.value })}
         onBlur={() => save(f)}
