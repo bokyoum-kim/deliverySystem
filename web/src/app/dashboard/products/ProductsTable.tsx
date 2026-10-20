@@ -126,9 +126,10 @@ export default function ProductsTable({ products }: { products: ProductRow[] }) 
                 />
               </th>
               <th>상품번호</th>
-              {/* 바코드는 13자리 고정이라 폭을 묶어두고, 남는 가로 공간은 긴 상품명이 가져가게 한다 */}
-              <th style={{ width: 140 }}>바코드</th>
-              <th style={{ minWidth: 460 }}>상품명</th>
+              {/* 바코드는 13자리라 최소 폭을 보장(width만 주면 자동 레이아웃에서 쪼그라든다) */}
+              <th style={{ minWidth: 120 }}>바코드</th>
+              {/* width:100%로 남는 가로 공간을 상품명이 모두 가져가고, 최소 460px은 보장 */}
+              <th style={{ width: "100%", minWidth: 460 }}>상품명</th>
               <th>포장수량</th>
               <th>무게</th>
               <th>가로</th>
@@ -197,12 +198,15 @@ function Row({
     router.refresh();
   }
 
-  function field(key: keyof typeof f, mono = true) {
+  // 숫자 칸은 기본 72px보다 좁혀도 값이 다 보인다(자릿수만큼만). 여기서 아낀 가로 폭은
+  // 상품명 열(width:100%)이 가져간다. input.cell은 박스·입고 화면과 공용이라 전역 CSS는 두고
+  // 이 표에서만 인라인으로 좁힌다.
+  function field(key: keyof typeof f, mono = true, width?: number) {
     const text = !mono;
     return (
       <input
         className="cell"
-        style={text ? { fontFamily: "inherit", textAlign: "left", width: "100%" } : undefined}
+        style={text ? { fontFamily: "inherit", textAlign: "left", width: "100%" } : width ? { width } : undefined}
         // 열을 넓혀도 안 들어가는 긴 상품명은 마우스를 올리면 전체가 보이도록
         title={text ? String(f[key] ?? "") : undefined}
         value={f[key] as string | number}
@@ -225,13 +229,13 @@ function Row({
       <td className="mono">{product.code}</td>
       <td>{field("barcode", false)}</td>
       <td>{field("name", false)}</td>
-      <td>{field("packQty")}</td>
-      <td>{field("weightG")}</td>
-      <td>{field("lengthMm")}</td>
-      <td>{field("widthMm")}</td>
-      <td>{field("heightMm")}</td>
-      <td>{field("price")}</td>
-      <td className="num-c">{field("stockQty")}</td>
+      <td>{field("packQty", true, 52)}</td>
+      <td>{field("weightG", true, 60)}</td>
+      <td>{field("lengthMm", true, 52)}</td>
+      <td>{field("widthMm", true, 52)}</td>
+      <td>{field("heightMm", true, 52)}</td>
+      <td>{field("price", true, 72)}</td>
+      <td className="num-c">{field("stockQty", true, 60)}</td>
       <td>
         <input
           type="checkbox"
